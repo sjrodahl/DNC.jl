@@ -1,10 +1,3 @@
-import Flux: softmax
-
-
-cosinesim(u, v) = dot(u, v)/(norm(u)*norm(v))
-
-weighted_softmax(xs, weight) = softmax(xs.*weight)
-
 """
     contentaddress(key, M, β[, K])
 
