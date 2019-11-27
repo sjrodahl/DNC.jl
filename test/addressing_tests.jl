@@ -1,5 +1,17 @@
 import Flux: softmax
 
+function generate_Sn(n)
+    vec = rand(n)
+    vec = exp.(vec)/sum(exp.(vec))
+    vec
+end
+
+function generate_Δn(n)
+    vec = rand(n)
+    vec = exp.(vec)/(sum(exp.(vec).+(rand(n)/2)))
+    vec
+end
+
 @testset "Content-based addressing" begin
     M = Matrix(
         [0.1 0.5 1.5;
@@ -50,4 +62,11 @@ end
         @test DNC.allocationweighting(u_1) == (zeros(5))
     end
 
+    @testset "Write weighting w_w" begin
+        g_a = 0
+        g_w = 1
+        a = generate_Δn(3)
+        c_w = generate_Sn(3)
+        @test writeweight(c_w, a, g_w, g_a) == c_w
+    end
 end

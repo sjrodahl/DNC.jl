@@ -34,3 +34,7 @@ function allocationweighting(u)
     end
     a
 end
+
+function writeweight(c_w, a, g_w, g_a)
+    return g_w*(g_a.*(a) + (1-g_a)c_w)
+end
