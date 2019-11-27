@@ -67,6 +67,39 @@ end
         g_w = 1
         a = generate_Δn(3)
         c_w = generate_Sn(3)
-        @test writeweight(c_w, a, g_w, g_a) == c_w
+        @test DNC.writeweight(c_w, a, g_w, g_a) == c_w
+    end
+end
+
+@testset "Temporal linkage" begin
+    @testset "Precedence weights p⃗" begin
+        w_w = [0.1, 0.2, 0.3, 0.4]
+        p_0 = zeros(4)
+        @test DNC.precedenceweight(p_0, w_w) == w_w
+    end
+    @testset "Link matrix L" begin
+        # Write to location 1, 2, and 3 three iteratively.
+        # L[2, 1] and L[3, 2] should be 1.0
+        L = Matrix(zeros(5, 5))
+        p_0 = zeros(5)
+        w_1 = [1.0, 0, 0, 0, 0]
+        DNC.updatelinkmatrix!(L, p_0, w_1)
+        # No change after first write
+        @test L == Matrix(zeros(5, 5))
+        p_1 = DNC.precedenceweight(p_0, w_1)
+        w_2 = [0.0, 1, 0, 0, 0]
+        DNC.updatelinkmatrix!(L, p_1, w_2)
+        # The temporal linkage between location 1 and 2 is stored
+        expected = Matrix(zeros(5, 5))
+        expected[2, 1] = 1.0
+        @test L == expected
+        p_2 = DNC.precedenceweight(p_1, w_2)
+        w_3 = [0.0, 0, 1, 0, 0]
+        DNC.updatelinkmatrix!(L, p_2, w_3)
+        # Link between 2 and 3. The link between 1 and 2 is restored.
+        expected[3, 2] = 1.0
+        @show L
+        @show expected
+        @test L == expected
     end
 end

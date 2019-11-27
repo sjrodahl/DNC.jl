@@ -38,3 +38,17 @@ end
 function writeweight(c_w, a, g_w, g_a)
     return g_w*(g_a.*(a) + (1-g_a)c_w)
 end
+
+precedenceweight(p_prev, w_w) = (1-sum(w_w))*p_prev + w_w
+
+function updatelinkmatrix!(L, precedence, w_w)
+    N, _ = size(L)
+    for i in 1:N
+        for j in 1:N
+            if i != j
+                L[i, j] = (1 - w_w[i] - w_w[j]) * L[i, j] + w_w[i]*precedence[j]
+            end
+        end
+    end
+    L
+end
