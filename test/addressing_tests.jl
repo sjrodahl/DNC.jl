@@ -77,29 +77,35 @@ end
         p_0 = zeros(4)
         @test DNC.precedenceweight(p_0, w_w) == w_w
     end
+
+    # Write weights. Writes to location 1, 2, and 3 iteratively.
+    w_w = [[1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0]]
+    # Temporal link matrix
+    L = Matrix(zeros(3, 3))
+    # precedence weights
+    p = zeros(3)
+    # Expected evolution of L
+    expected = [
+        Matrix(zeros(3, 3)),
+        Matrix([0.0 0.0 0.0;
+                1.0 0.0 0.0;
+                0.0 0.0 0.0]),
+        Matrix([0.0 0.0 0.0;
+                1.0 0.0 0.0;
+                0.0 1.0 0.0])
+    ]
     @testset "Link matrix L" begin
-        # Write to location 1, 2, and 3 three iteratively.
-        # L[2, 1] and L[3, 2] should be 1.0
-        L = Matrix(zeros(5, 5))
-        p_0 = zeros(5)
-        w_1 = [1.0, 0, 0, 0, 0]
-        DNC.updatelinkmatrix!(L, p_0, w_1)
-        # No change after first write
-        @test L == Matrix(zeros(5, 5))
-        p_1 = DNC.precedenceweight(p_0, w_1)
-        w_2 = [0.0, 1, 0, 0, 0]
-        DNC.updatelinkmatrix!(L, p_1, w_2)
-        # The temporal linkage between location 1 and 2 is stored
-        expected = Matrix(zeros(5, 5))
-        expected[2, 1] = 1.0
-        @test L == expected
-        p_2 = DNC.precedenceweight(p_1, w_2)
-        w_3 = [0.0, 0, 1, 0, 0]
-        DNC.updatelinkmatrix!(L, p_2, w_3)
-        # Link between 2 and 3. The link between 1 and 2 is restored.
-        expected[3, 2] = 1.0
-        @show L
-        @show expected
-        @test L == expected
+        for i in 1:length(w_w)
+            DNC.updatelinkmatrix!(L, p, w_w[i])
+            @test L == expected[i]
+            p = DNC.precedenceweight(p, w_w[i])
+        end
+        # Last read was location 2. The forward weight should point to 3, backward to 1.
+        w_r = [0.0, 1, 0]
+        @test DNC.forwardweight(L, w_r) == [0, 0, 1]
+        @test DNC.backwardweight(L, w_r) == [1, 0, 0]
     end
+
 end

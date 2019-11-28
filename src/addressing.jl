@@ -52,3 +52,16 @@ function updatelinkmatrix!(L, precedence, w_w)
     end
     L
 end
+
+forwardweight(L, w_r) = L*w_r
+backwardweight(L, w_r) = L'*w_r
+
+"""
+    readweight(backw, content, forw, read_mode)
+
+Interpolate the backward weighting, content weighting and forward weighting.
+read_mode is a vector of size 3 summing to 1.
+"""
+function readweight(backw, content, forw, read_mode)
+    return read_mode[1]*backw + read_mode[2]*content + read_mode[3]*forw
+end
