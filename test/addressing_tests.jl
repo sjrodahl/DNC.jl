@@ -108,4 +108,13 @@ end
         @test DNC.backwardweight(L, w_r) == [1, 0, 0]
     end
 
+    @testset "Read weighting w_t^r" begin
+        b = [0, 0, 1]
+        f = [1, 0, 0]
+        c = [0, 1, 0]
+        pi = [0, 1, 0]
+        readw = DNC.readweight(b, c, f, pi)
+        @test in_Δn(readw)
+    end
+
 end
