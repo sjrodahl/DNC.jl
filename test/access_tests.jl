@@ -1,13 +1,12 @@
 M = Matrix(
     [1.0 2 3;
-    4 5 6;
-    7 8 9])
-L = zeros(3, 3)
+    -1 -2  -3;
+    1 -2 3])
 
 interface = (
     contentread = (
         k_r = [1.0, 2, 0],
-        β_r = 5.0,
+        β_r = 100.0,
         k_w = [4.0, 0, 6],
         β_w = 5.0,
         erase = [1.0, 1, 1],
@@ -19,7 +18,7 @@ interface = (
     ),
     contentwrite = (
         k_r = [1.0, 2, 0],
-        β_r = 5.0,
+        β_r = 10.0,
         k_w = [4.0, 0, 6],
         β_w = 5.0,
         erase = [1.0, 1, 1],
@@ -30,3 +29,22 @@ interface = (
         readmode = [0, 1, 0]
     )
 )
+
+state = State(
+    Matrix(zeros(3, 3)),
+    zeros(3),
+    zeros(3),
+    [0, 0, 1],
+    [1, 0, 0]
+)
+
+@testset "Sharp read/write" begin
+    @testset "Read" begin
+        r = readmem(M, interface.contentread, state)
+        @test r == M[1,:]
+    end
+    #@testset "Write" begin
+    #    Mnew = writemem(M, interface.contentwrite)
+    #    @test Mnew[2,:] == interface.contentwrite.add
+    #end
+end
