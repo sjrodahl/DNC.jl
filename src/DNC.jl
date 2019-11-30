@@ -1,5 +1,10 @@
 module DNC
 
-greet() = print("Hello World!")
+using LinearAlgebra
+
+export contentaddress
+
+include("addressing.jl")
+include("utils.jl")
 
 end # module
