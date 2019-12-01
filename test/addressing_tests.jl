@@ -1,4 +1,3 @@
-import Flux: softmax
 
 function generate_Sn(n)
     vec = rand(n)

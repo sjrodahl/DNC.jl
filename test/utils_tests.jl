@@ -1,3 +1,5 @@
+import Flux: softmax
+
 xs = sort([-1000, -10.0, -1.5, 0.0, 0.1, 1.0, 15.0])
 @testset "oneplus" for i in 1:length(xs)
     # Outputs correct range
