@@ -4,6 +4,7 @@ using LinearAlgebra
 
 export contentaddress
 export readmem
+export writemem!
 export State
 
 include("addressing.jl")

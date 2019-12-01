@@ -43,8 +43,8 @@ state = State(
         r = readmem(M, interface.contentread, state)
         @test r == M[1,:]
     end
-    #@testset "Write" begin
-    #    Mnew = writemem(M, interface.contentwrite)
-    #    @test Mnew[2,:] == interface.contentwrite.add
-    #end
+    @testset "Write" begin
+        writemem!(M, interface.contentwrite, state)
+        @test M[2,:] == interface.contentwrite.add
+    end
 end
