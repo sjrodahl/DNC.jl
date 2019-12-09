@@ -15,6 +15,7 @@ function readmem(M, interface, state)
     b = backwardweight(state.L, state.w_r)
     f = forwardweight(state.L, state.w_r)
     w_r = readweight(b, c_r, f, interface.readmode)
+    state.w_r = w_r
     r = M' * w_r
     r
 end
@@ -24,8 +25,10 @@ function writemem!(M, interface, state)
     𝜓 = memoryretention(state.w_r, interface.free)
     u = usage(state.u, state.w_w, 𝜓)
     a = allocationweighting(u)
-    w_w = writeweight(c_w, a, interface.alloc_gate, interface.alloc_write)
+    w_w = writeweight(c_w, a, interface.alloc_gate, interface.write_gate)
     erase_and_add!(M, w_w, interface.erase, interface.add)
+    state.u = u
+    state.w_w = w_w
 end
 
 function erase_and_add!(M, w_w, e, a)
