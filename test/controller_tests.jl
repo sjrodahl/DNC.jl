@@ -23,11 +23,11 @@ using Flux: σ, softmax
         @test vars.k_r == [k_r]
         @test vars.β_r == [β_r]
         @test vars.k_w == k_w
-        @test vars.e == σ.(erase)
-        @test vars.v == add
-        @test vars.f == [σ(free)]
-        @test vars.g_a == σ(g_a)
-        @test vars.g_w == σ(g_w)
+        @test vars.erase == σ.(erase)
+        @test vars.add == add
+        @test vars.free == [σ(free)]
+        @test vars.alloc_gate == σ(g_a)
+        @test vars.write_gate == σ(g_w)
         @test vars.readmode == [softmax(readmode)]
     end # begin
 
@@ -51,11 +51,11 @@ using Flux: σ, softmax
         @test vars.k_r == k_r
         @test vars.β_r == β_r
         @test vars.k_w == k_w
-        @test vars.e == σ.(erase)
-        @test vars.v == add
-        @test vars.f == σ.(free)
-        @test vars.g_a == σ(g_a)
-        @test vars.g_w == σ(g_w)
+        @test vars.erase == σ.(erase)
+        @test vars.add == add
+        @test vars.free == σ.(free)
+        @test vars.alloc_gate == σ(g_a)
+        @test vars.write_gate == σ(g_w)
         @test vars.readmode == softmax.(readmode)
 
         end # begin
