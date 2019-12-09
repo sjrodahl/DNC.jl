@@ -53,12 +53,15 @@ end
     end
 
     @testset "Allocation a⃗" begin
+        # Using approximation due to DNC use of _EPSILON to avoid num. instability
         w_r, f, w_w = usage_case_2
         u = DNC.usage(u_prev,w_w, DNC.memoryretention(w_r, f))
-        @test DNC.allocationweighting(u) ≈ [0.04725, 0.14625, 0.775]
+        @test isapprox(DNC.allocationweighting(u), [0.04725, 0.14625, 0.775]; atol=DNC._EPSILON*10)
         # Allocation is zero if all usages are 1
         u_1 = ones(5)
-        @test DNC.allocationweighting(u_1) == (zeros(5))
+        @test isapprox(DNC.allocationweighting(u_1), (zeros(5)); atol=DNC._EPSILON*10)
+        u_2 = zeros(5)
+        @test isapprox(DNC.allocationweighting(u_2), [1.0, 0, 0, 0, 0]; atol=DNC._EPSILON*10)
     end
 
     @testset "Write weighting w_w" begin

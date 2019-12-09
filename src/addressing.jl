@@ -1,3 +1,6 @@
+using Base: cumprod
+using Flux: param, TrackedArray
+
 """
     contentaddress(key, M, β[, K])
 
@@ -25,15 +28,21 @@ end
 
 usage(u_prev, write_weights, 𝜓) = (u_prev + write_weights - (u_prev.*write_weights)) .* 𝜓
 
-function allocationweighting(u)
+_EPSILON = 1e-6
+
+
+cumprod_exclusive(arr::AbstractArray) = cumprod(arr) ./ arr
+
+function allocationweighting(u::AbstractArray; eps::AbstractFloat=_EPSILON)
+    u = eps .+ (1 - eps) .* u # Ensure values are large enough for numerical stability in cumprod_exclusive
     N = length(u)
-    a = zeros(N)
-    ϕ = sortperm(u) # Indices in ascending order of usage
-    for j in 1:N
-        a[ϕ[j]] = (1-u[ϕ[j]])*foldl(*, [u[ϕ[i]] for i in 1:(j-1)])
-    end
+    ϕ = sortperm(u)
+    sortedusage = u[ϕ]
+    prod_sortedusage = cumprod_exclusive(sortedusage)
+    sortedalloc = (1 .- sortedusage) .* prod_sortedusage
+    a = sortedalloc[ϕ]
     a
-end
+ end
 
 function writeweight(c_w, a, g_w, g_a)
     return g_w*(g_a.*(a) + (1-g_a)c_w)
