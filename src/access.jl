@@ -1,12 +1,3 @@
-mutable struct State{M<:AbstractArray, A<:AbstractArray}
-    L::M
-    p::A
-    u::A
-    w_w::A
-    w_r::A
-end
-
-
 function readmem(M, interface, state)
     c_r = contentaddress(interface.k_r, M, interface.β_r)
     updatelinkmatrix!(state.L, state.p, state.w_w)
