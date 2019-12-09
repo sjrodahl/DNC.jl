@@ -48,3 +48,10 @@ state = State(
         @test M[2,:] == interface.contentwrite.add
     end
 end
+
+@testset "Erase and add" begin
+    m = param(M)
+    new = DNC.erase_and_add(m, [0.0, 0, 1], ones(3), [2.0, 2.0, 2.0])
+    @show new
+    @test new[3,:] == [2.0, 2.0, 2.0]
+end

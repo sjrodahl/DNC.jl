@@ -26,7 +26,7 @@ function calcoutput(v, r)
 end
 
 # TODO: So far assuming 1 read head
-function predict(x, controller)
+function predict(x, controller, state, M, R, W, Y)
     out = controller(x)
     v = out[1:Y]
     ξ = out[Y+1:length(out)]

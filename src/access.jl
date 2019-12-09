@@ -25,3 +25,5 @@ function erase_and_add!(M, w_w, e, a)
     M .*= ones(size(M)) - w_w*e'
     M .+= w_w*a'
 end
+
+erase_and_add(M, w_w, e, a) = M * (ones(size(M)) - w_w * e') + w_w * a'
