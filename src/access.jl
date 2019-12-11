@@ -1,19 +1,3 @@
-@with_kw struct WriteHead
-    k::Vector{Float64} # Write key
-    β::Float64 # Key strength
-    e::Vector{Float64} # erase
-    v::Vector{Float64} # add
-    g_a::Float64 # allocation gate
-    g_w::Float64 # write gate
-end
-
-@with_kw struct ReadHead
-    k::Vector{Float64} # read key
-    β::Float64 # key strength
-    f::Float64 # free gate
-    π::Vector{Float64} # read mode
-end
-
 # L should be updated before this
 function readmem(M, rh::ReadHead, L::Matrix, prev_w_r)
     @unpack k, β, π = rh

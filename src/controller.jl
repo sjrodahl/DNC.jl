@@ -1,20 +1,5 @@
-using Flux: softmax
-
-@with_kw mutable struct State{M<:AbstractArray, A<:AbstractArray, A2<:AbstractArray}
-    L::M
-    p::A
-    u::A
-    w_w::A
-    w_r::A2
-end
-
-State(N::Int, R::Int) = State(
-    L=zeros(N, N),
-    p = zeros(N),
-    u = zeros(N),
-    w_w = zeros(N),
-    w_r = [zeros(N) for i in 1:R]
-    )
+using Flux: softmax, σ
+using Parameters
 
 outputsize(R::Int, N::Int, W::Int, X::Int, Y::Int) = W*R + 3W + 5R +3 + Y
 
@@ -59,16 +44,18 @@ function split_ξ(ξ, R::Int, W::Int)
     ĝ_w = ξ[(R*W+2R+3W+3)]
     rest = ξ[(R*W+2R+3W+4):length(ξ)]
     readmode = [rest[((r-1)*3+1):3r] for r in 1:R]
-    return (
-        k_r = k_r,
-        β_r = β_r,
-        k_w = k_w,
-        β_w = β_w,
-        erase = Flux.σ.(ê),
-        add = v,
-        free = Flux.σ.(f̂),
-        alloc_gate = Flux.σ(ĝ_a),
-        write_gate = Flux.σ(ĝ_w),
-        readmode = Flux.softmax.(readmode)
+    rhs = [ReadHead(
+            k=k_r[i],
+            β=β_r[i],
+            f=σ(f̂[i]),
+            π=Flux.softmax(readmode[i])) for i in 1:R]
+    wh = WriteHead(
+            k=k_w,
+            β=β_w,
+            e=σ(ê),
+            v=v,
+            g_a = σ(ĝ_a),
+            g_w = σ(ĝ_w)
     )
+    return (rhs, wh)
 end
