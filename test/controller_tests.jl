@@ -17,18 +17,14 @@ using Flux: σ, softmax
         g_w = 1.0
         readmode = [0.0, 0.0, 1]
 
+        readhead = ReadHead(k_r, β_r, free, readmode)
+        writehead = WriteHead(k_w, β_w, erase, add, g_a, g_w)
+
         ξ = [k_r; β_r; k_w; β_w; erase; add; free; g_a; g_w; readmode]
 
-        vars = DNC.split_ξ(ξ, R, W)
-        @test vars.k_r == [k_r]
-        @test vars.β_r == [β_r]
-        @test vars.k_w == k_w
-        @test vars.erase == σ.(erase)
-        @test vars.add == add
-        @test vars.free == [σ(free)]
-        @test vars.alloc_gate == σ(g_a)
-        @test vars.write_gate == σ(g_w)
-        @test vars.readmode == [softmax(readmode)]
+        rhs, wh = DNC.split_ξ(ξ, R, W)
+        @test rhs[1] == readhead
+        @test wh == writehead
     end # begin
 
     @testset "Multiple read heads" begin
@@ -44,19 +40,14 @@ using Flux: σ, softmax
         g_a = 0.5
         g_w = 1.0
         readmode = [[0.5, 0.5, 1.0],[0.0, 0.0, 1]]
-
+        rh1 = ReadHead(k_r[1], β_r[1], free[1], readmode[1])
+        rh2 = ReadHead(k_r[2], β_r[2], free[2], readmode[2])
+        writehead = WriteHead(k_w, β_w, erase, add, g_a, g_w)
         ξ = [k_r...; β_r...; k_w; β_w; erase...; add...; free; g_a; g_w; readmode...]
 
-        vars = DNC.split_ξ(ξ, R, W)
-        @test vars.k_r == k_r
-        @test vars.β_r == β_r
-        @test vars.k_w == k_w
-        @test vars.erase == σ.(erase)
-        @test vars.add == add
-        @test vars.free == σ.(free)
-        @test vars.alloc_gate == σ(g_a)
-        @test vars.write_gate == σ(g_w)
-        @test vars.readmode == softmax.(readmode)
-
+        rhs, wh = DNC.split_ξ(ξ, R, W)
+        @test rhs[1] == rh1
+        @test rhs[2] == rh2
+        @test wh == writehead
         end # begin
 end # begin
