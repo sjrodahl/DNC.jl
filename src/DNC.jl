@@ -1,6 +1,8 @@
 module DNC
 
+using Flux
 using LinearAlgebra
+using Parameters
 
 export contentaddress
 export predict

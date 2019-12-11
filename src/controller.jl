@@ -1,7 +1,6 @@
-using Flux
 using Flux: softmax
 
-mutable struct State{M<:AbstractArray, A<:AbstractArray, A2<:AbstractArray}
+@with_kw mutable struct State{M<:AbstractArray, A<:AbstractArray, A2<:AbstractArray}
     L::M
     p::A
     u::A

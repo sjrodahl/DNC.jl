@@ -1,4 +1,4 @@
-struct WriteHead
+@with_kw struct WriteHead
     k::Vector{Float64} # Write key
     β::Float64 # Key strength
     e::Vector{Float64} # erase
@@ -7,7 +7,7 @@ struct WriteHead
     g_w::Float64 # write gate
 end
 
-struct ReadHead
+@with_kw struct ReadHead
     k::Vector{Float64} # read key
     β::Float64 # key strength
     f::Float64 # free gate
@@ -16,10 +16,11 @@ end
 
 # L should be updated before this
 function readmem(M, rh::ReadHead, L::Matrix, prev_w_r)
-    c_r = contentaddress(rh.k, M, rh.β)
+    @unpack k, β, π = rh
+    c_r = contentaddress(k, M, β)
     b = backwardweight(L, prev_w_r)
     f = forwardweight(L, prev_w_r)
-    w_r = readweight(b, c_r, f, rh.readmode)
+    w_r = readweight(b, c_r, f, π)
     r = M' * w_r
     r
 end
@@ -48,13 +49,14 @@ function writemem(M, interface, state)
 end
 
 function writemem(M::Matrix, wh::WriteHead, rhs::Vector{ReadHead}, prev_w_w::AbstractArray, prev_w_r::AbstractArray, prev_usage::AbstractArray)
+    @unpack k, β, g_a, g_w, e, v = wh
     free = [rh.f for rh in rhs]
-    c_w = contentaddress(wh.k, M, wh.β)
+    c_w = contentaddress(k, M, β)
     𝜓 = memoryretention(prev_w_r, free)
     u = usage(prev_usage, prev_w_w, 𝜓)
     a = allocationweighting(u)
-    w_w = writeweight(c_w, a, wh.g_w, wh.g_a)
-    newmem = erase_and_add(M, w_w, wh.e, wh.v)
+    w_w = writeweight(c_w, a, g_w, g_a)
+    newmem = erase_and_add(M, w_w, e, v)
     newmem
 end
 
