@@ -28,20 +28,20 @@ State(N::Int, R::Int) = State(
     w_r = [zeros(N) for i in 1:R]
     )
 
-@with_kw struct WriteHead
-    k::Vector{Float64} # Write key
-    β::Float64 # Key strength
-    e::Vector{Float64} # erase
-    v::Vector{Float64} # add
-    g_a::Float64 # allocation gate
-    g_w::Float64 # write gate
+@with_kw struct WriteHead{A<:AbstractArray, T<:Real}
+    k::A # Write key
+    β::T # Key strength
+    e::A # erase
+    v::A # add
+    g_a::T # allocation gate
+    g_w::T # write gate
 end
 
-@with_kw struct ReadHead
-    k::Vector{Float64} # read key
-    β::Float64 # key strength
-    f::Float64 # free gate
-    π::Vector{Float64} # read mode
+@with_kw struct ReadHead{A<:AbstractArray, T<:Real}
+    k::A # read key
+    β::T # key strength
+    f::T # free gate
+    π::A # stractArray{A, 1} # read mode
 end
 
 

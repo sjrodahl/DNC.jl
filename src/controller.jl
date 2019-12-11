@@ -13,19 +13,21 @@ end
 
 loss(x, y) = Flux.mse(predict(x), y)
 
-function calcoutput(v, r)
-    return v + W_r*(vcat(r))
+
+
+function calcoutput(v, r, W_r)
+    return v + W_r*(vcat(r...))
 end
 
-function predict(x, controller, state, M, R, W, Y)
+function predict(x, controller, state, M, R, W, Y, W_r)
     @unpack L, w_w, w_r, u = state
     out = controller(x)
     v = out[1:Y]
     ξ = out[Y+1:length(out)]
     rhs, wh = split_ξ(ξ, R, W)
-    writemem(M, wh, rhs, w_w, w_r, u)
-    r = [readmem(M, rh, L, w_r) for rh in rhs]
-    return calcoutput(v, r)
+    M = writemem(M, wh, rhs, w_w, w_r, u)
+    r = [readmem(M, rhs[i], L, w_r[i]) for i in 1:R]
+    return calcoutput(v, r, W_r)
 end
 
 function split_ξ(ξ, R::Int, W::Int)
@@ -51,7 +53,7 @@ function split_ξ(ξ, R::Int, W::Int)
     wh = WriteHead(
             k=k_w,
             β=β_w,
-            e=σ(ê),
+            e=σ.(ê),
             v=v,
             g_a = σ(ĝ_a),
             g_w = σ(ĝ_w)

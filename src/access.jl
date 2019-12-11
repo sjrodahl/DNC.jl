@@ -9,9 +9,9 @@ function readmem(M, rh::ReadHead, L::Matrix, prev_w_r)
     r
 end
 
-function writemem(M::Matrix,
+function writemem(M,
         wh::WriteHead,
-        rhs::Vector{ReadHead},
+        rhs::AbstractArray,
         prev_w_w::AbstractArray,
         prev_w_r::AbstractArray,
         prev_usage::AbstractArray)
