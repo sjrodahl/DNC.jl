@@ -3,49 +3,74 @@ M = Matrix(
     -1 -2  -3;
     1 -2 3])
 
-interface = (
-    contentread = (
-        k_r = [1.0, 2, 0],
-        β_r = 100.0,
-        k_w = [4.0, 0, 6],
-        β_w = 5.0,
-        erase = [1.0, 1, 1],
-        add = [10.0, 20, 30],
-        free = 1.0,
-        alloc_gate = 0.0,
-        write_gate = 0.0,
-        readmode = [0.0, 1, 0]
-    ),
-    contentwrite = (
-        k_r = [1.0, 2, 0],
-        β_r = 10.0,
-        k_w = [-1.0, -2.0, -3.0],
-        β_w = 100.0,
-        erase = [1.0, 1, 1],
-        add = [10.0, 20, 30],
-        free = 1.0,
-        alloc_gate = 0.0,
-        write_gate = 1.0,
-        readmode = [0.0, 1, 0]
+# Content-based read
+contentread = ReadHead(
+    k = [1.0, 2.0, 0.0],
+    β = 100.0,
+    f = 1.0,
+    π = [0.0, 1.0, 0.0]
     )
+
+# Temporal linkage based read
+backwardread = ReadHead(
+    k = [-1.0, -2.0, -5.0],
+    β = 100.0,
+    f = 0.0,
+    π = [1.0, 0.0, 0.0]
+    )
+
+forwardread = ReadHead(
+    k = [-1.0, -2.0, -5.0],
+    β = 100.0,
+    f = 0.0,
+    π = [0.0, 0.0, 1.0]
+    )
+
+contentwrite = WriteHead(
+    k = [1.0, 2, 0],
+    β = 10.0,
+    e = [1.0, 1.0, 1.0],
+    v = [10.0, 20.0, 30.0],
+    g_a = 0.0,
+    g_w = 1.0
+)
+
+allocationwrite = WriteHead(
+    k = [1.0, 1.0, 1.0],
+    β = 1.0,
+    e = [1.0, 1.0, 1.0],
+    v = [10.0, 20.0, 30.0],
+    g_a = 1.0,
+    g_w = 1.0
 )
 
 state = State(
-    Matrix(zeros(3, 3)),
-    zeros(3),
-    zeros(3),
-    [0.0, 0, 1],
-    [1.0, 0, 0]
+    # Write history is 1 -> 2 -> 3
+    L = [0.0 0.0 0.0;
+         1.0 0.0 0.0;
+         0.0 1.0 0.0],
+    p = zeros(3),
+    u = [1.0, 1.0, 0.0], # 3 is (artificially) set to unused/ free to be allocated
+    w_w = [0.0, 1.0, 0],
+    w_r = [[0.0, 1.0, 0.0]] # last read was 2, so forward points to 3, back to 1
 )
 
 @testset "Sharp read/write" begin
     @testset "Read" begin
-        r = readmem(M, interface.contentread, state)
-        @test r == M[1,:]
+        @unpack L, w_r = state
+        r1 = readmem(M, contentread, L, w_r[1])
+        @test r1 == M[1,:]
+        r2 = readmem(M, backwardread, L, w_r[1])
+        @test r2 == M[1, :]
+        r3 = readmem(M, forwardread, L, w_r[1])
+        @test r3 == M[3, :]
     end
     @testset "Write" begin
-        newM = writemem(M, interface.contentwrite, state)
-        @test newM[2,:] == interface.contentwrite.add
+        @unpack w_w, w_r, u = state
+        newM = writemem(M, contentwrite, [contentread], w_w, w_r, u)
+        @test isapprox(newM[1,:], contentwrite.v, atol=1e-2)
+        newM2 = writemem(M, allocationwrite, [contentread], w_w, w_r, u)
+        @test isapprox(newM2[3,:], contentwrite.v, atol=1e-2)
     end
 end
 

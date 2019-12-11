@@ -48,7 +48,12 @@ function writemem(M, interface, state)
     newmem
 end
 
-function writemem(M::Matrix, wh::WriteHead, rhs::Vector{ReadHead}, prev_w_w::AbstractArray, prev_w_r::AbstractArray, prev_usage::AbstractArray)
+function writemem(M::Matrix,
+        wh::WriteHead,
+        rhs::Vector{ReadHead},
+        prev_w_w::AbstractArray,
+        prev_w_r::AbstractArray,
+        prev_usage::AbstractArray)
     @unpack k, β, g_a, g_w, e, v = wh
     free = [rh.f for rh in rhs]
     c_w = contentaddress(k, M, β)

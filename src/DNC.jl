@@ -8,7 +8,9 @@ export contentaddress
 export predict
 export readmem
 export writemem
+export ReadHead
 export State
+export WriteHead
 
 include("addressing.jl")
 include("access.jl")
