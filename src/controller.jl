@@ -17,15 +17,14 @@ function calcoutput(v, r)
     return v + W_r*(vcat(r))
 end
 
-
-# TODO: So far assuming 1 read head
 function predict(x, controller, state, M, R, W, Y)
+    @unpack L, w_w, w_r, u = state
     out = controller(x)
     v = out[1:Y]
     ξ = out[Y+1:length(out)]
-    interface = split_ξ(ξ, R, W)
-    writemem(M, interface, state)
-    r = readmem(M, interface, state)
+    rhs, wh = split_ξ(ξ, R, W)
+    writemem(M, wh, rhs, w_w, w_r, u)
+    r = [readmem(M, rh, L, w_r) for rh in rhs]
     return calcoutput(v, r)
 end
 
