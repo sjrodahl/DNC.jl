@@ -8,6 +8,14 @@ using Flux: softmax
     w_r::A2
 end
 
+State(N::Int, R::Int) = State(
+    L=zeros(N, N),
+    p = zeros(N),
+    u = zeros(N),
+    w_w = zeros(N),
+    w_r = [zeros(N) for i in 1:R]
+    )
+
 outputsize(R::Int, N::Int, W::Int, X::Int, Y::Int) = W*R + 3W + 5R +3 + Y
 
 function constructdata(size, numsamples)
