@@ -44,14 +44,12 @@ state = State(
         @test r == M[1,:]
     end
     @testset "Write" begin
-        writemem!(M, interface.contentwrite, state)
-        @test M[2,:] == interface.contentwrite.add
+        newM = writemem(M, interface.contentwrite, state)
+        @test newM[2,:] == interface.contentwrite.add
     end
 end
 
 @testset "Erase and add" begin
-    m = param(M)
-    new = DNC.erase_and_add(m, [0.0, 0, 1], ones(3), [2.0, 2.0, 2.0])
-    @show new
+    new = DNC.erase_and_add(M, [0.0, 0, 1], ones(3), [2.0, 2.0, 2.0])
     @test new[3,:] == [2.0, 2.0, 2.0]
 end

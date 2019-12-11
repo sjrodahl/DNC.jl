@@ -1,12 +1,12 @@
 using Flux
 using Flux: softmax
 
-mutable struct State{M<:AbstractArray, A<:AbstractArray}
+mutable struct State{M<:AbstractArray, A<:AbstractArray, A2<:AbstractArray}
     L::M
     p::A
     u::A
     w_w::A
-    w_r::A
+    w_r::A2
 end
 
 outputsize(R::Int, N::Int, W::Int, X::Int, Y::Int) = W*R + 3W + 5R +3 + Y
@@ -25,13 +25,14 @@ function calcoutput(v, r)
     return v + W_r*(vcat(r))
 end
 
+
 # TODO: So far assuming 1 read head
 function predict(x, controller, state, M, R, W, Y)
     out = controller(x)
     v = out[1:Y]
     ξ = out[Y+1:length(out)]
     interface = split_ξ(ξ, R, W)
-    writemem!(M, interface, state)
+    writemem(M, interface, state)
     r = readmem(M, interface, state)
     return calcoutput(v, r)
 end

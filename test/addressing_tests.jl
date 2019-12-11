@@ -34,10 +34,12 @@ end
 @testset "Memory allocation" begin
     usage_case_1 = (w_r = [0.5, 0.25, 0.25], f=1, w_w = [0.25, 0.5, 0.25])
     usage_case_2 = (w_r = [[0.6, 0.3, 0.1], [0.0, 0.5, 0.5]], f=[1, 0], w_w = [0.25, 0.5, 0.25])
+    usage_case_3 = (w_r = [[0.5, 0.25, 0.25]], f=[1], w_w = [0.25, 0.5, 0.25])
     u_prev = [1.0, 0.0, 0.0]
 
     @testset "Memory retention 𝜓" begin
         @test DNC.memoryretention(usage_case_1.w_r, usage_case_1.f) == [0.5, 0.75, 0.75]
+        @test DNC.memoryretention(usage_case_3.w_r, usage_case_1.f) == [0.5, 0.75, 0.75]
         # Two read heads
         @test DNC.memoryretention(usage_case_2.w_r, usage_case_2.f) == [0.4, 0.7, 0.9]
     end

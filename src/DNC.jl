@@ -5,7 +5,7 @@ using LinearAlgebra
 export contentaddress
 export predict
 export readmem
-export writemem!
+export writemem
 export State
 
 include("addressing.jl")
