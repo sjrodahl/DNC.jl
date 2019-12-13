@@ -39,10 +39,13 @@ function update_state_after_write!(state::State, M, wh::WriteHead, free::Abstrac
 end
 
 function update_state_after_read!(state::State, M, rhs::AbstractArray)
-    b = backwardweight(state.L, state.w_r)
-    f = forwardweight(state.L, state.w_r)
-    w_r = [readweight(b, c_r, f, rh.π) for rh in rhs]
-    state.w_r = w_r
+    for i in 1:length(rhs)
+        c_r = contentaddress(rhs[i].k, M, rhs[i].β)
+        b = backwardweight(state.L, state.w_r[i])
+        f = forwardweight(state.L, state.w_r[i])
+        w_r = readweight(b, c_r, f, rhs[i].π)
+        state.w_r[i] = w_r
+    end
 end
 
 erase_and_add(M, w_w, e, a) = M .* (ones(size(M)) - w_w * e') + w_w * a'
