@@ -1,5 +1,5 @@
 using Base: cumprod
-using Flux: param, TrackedArray
+using Flux: param
 
 """
     contentaddress(key, M, β[, K])
