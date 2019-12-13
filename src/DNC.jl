@@ -11,13 +11,15 @@ export writemem
 export ReadHead
 export State
 export WriteHead
+export Dnc
+export DNCCell
 
-@with_kw mutable struct State{M<:AbstractArray, A<:AbstractArray, A2<:AbstractArray}
-    L::M
-    p::A
-    u::A
-    w_w::A
-    w_r::A2
+@with_kw mutable struct State{A<:AbstractArray, V<:AbstractArray}
+    L::Matrix
+    p::V
+    u::V
+    w_w::V
+    w_r::A
 end
 
 State(N::Int, R::Int) = State(
@@ -45,7 +47,7 @@ end
 end
 
 
-include("controller.jl")
+include("computer.jl")
 include("access.jl")
 include("addressing.jl")
 include("utils.jl")
