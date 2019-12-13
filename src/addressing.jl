@@ -1,5 +1,5 @@
 using Base: cumprod
-using Flux: param, TrackedArray
+using Flux: param
 
 """
     contentaddress(key, M, β[, K])
@@ -28,7 +28,7 @@ end
 
 usage(u_prev, write_weights, 𝜓) = (u_prev + write_weights - (u_prev.*write_weights)) .* 𝜓
 
-_EPSILON = 1e-6
+const _EPSILON = 1e-6
 
 
 cumprod_exclusive(arr::AbstractArray) = cumprod(arr) ./ arr
@@ -43,6 +43,17 @@ function allocationweighting(u::AbstractArray; eps::AbstractFloat=_EPSILON)
     a = sortedalloc[ϕ]
     a
  end
+
+function allocationweighting(free_gate, prev_w_r, prev_w_w, prev_usage; eps::AbstractFloat=_EPSILON)
+    𝜓 = memoryretention(prev_w_r, free_gate)
+    u = usage(prev_usage, prev_w_w, 𝜓)
+    allocationweighting(u)
+end
+
+function allocationweighting(free_gate, state::State; eps::AbstractFloat=_EPSILON)
+    @unpack w_r, w_w, u = state
+    allocationweighting(free_gate, w_r, w_w, u)
+end
 
 function writeweight(c_w, a, g_w, g_a)
     return g_w*(g_a.*(a) + (1-g_a)c_w)
