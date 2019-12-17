@@ -8,6 +8,7 @@ weighted_softmax(xs, weight) = softmax(xs.*weight)
 
 oneplus(x) = 1 + log(1+exp(x))
 
+inputsize(X::Int, R::Int, W::Int) = X + R * W
 outputsize(R::Int, N::Int, W::Int, X::Int, Y::Int) = W*R + 3W + 5R +3 + Y
 
 function calcoutput(v, r, W_r)
