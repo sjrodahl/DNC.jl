@@ -1,10 +1,11 @@
+using Flux: @functor
 using Flux: softmax, σ
 using Parameters
 
 import Flux.hidden
 
 
-@with_kw mutable struct DNCCell{V, A}
+mutable struct DNCCell{V, A}
     controller
     readvectors::V
     Wr::A
@@ -18,15 +19,28 @@ end
 
 DNCCell(controller, in::Int, out::Int, N::Int, W::Int, R::Int; init=Flux.glorot_uniform) =
     DNCCell(
-        controller=controller,
-        readvectors= zeros(R*W),
-        Wr=init(out, R*W),
-        M=init(N, W),
-        R=R,
-        W=W,
-        X=in,
-        Y=out,
-        state=State(N, R)
+        controller,
+        zeros(R*W),
+        init(out, R*W),
+        init(N, W),
+        R,
+        W,
+        in,
+        out,
+        State(N, R)
+    )
+
+DNCCell(in::Int, out::Int, memsize::Tuple, R::Int; init=Flux.glorot_uniform) =
+    DNCCell(
+        LSTM(inputsize(in, R, memsize[2]), outputsize(R, memsize[1], memsize[2], in, out)),
+        zeros(R*memsize[2]),
+        init(out, R*memsize[2]),
+        init(memsize...),
+        R,
+        memsize[2],
+        in,
+        out,
+        State(memsize[1], R)
     )
 
 function (m::DNCCell)(h, x)
@@ -45,6 +59,7 @@ end
 
 hidden(m::DNCCell) = m.readvectors
 
+@functor DNCCell controller, Wr
 
 """
     Dnc(controller, in::Int, out::Int, N::Int, W::Int, R::Int)
