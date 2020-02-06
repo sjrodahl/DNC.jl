@@ -1,3 +1,6 @@
+using Zygote: @adjoint
+
+
 @with_kw mutable struct State{A<:AbstractArray, V<:AbstractArray}
     L::Matrix
     p::V
@@ -70,14 +73,22 @@ function update_state_after_write!(state::State, M, wh::WriteHead, free::Abstrac
     state.p = precedenceweight(state.p, state.w_w)
 end
 
+@adjoint update_state_after_write!(state::State, M, wh::WriteHead, free::AbstractArray) =
+    update_state_after_write!(state, M, wh, free), _ -> nothing
+
 function update_state_after_read!(state::State, M, rhs::AbstractArray)
-    for i in 1:length(rhs)
-        c_r = contentaddress(rhs[i].k, M, rhs[i].β)
-        b = backwardweight(state.L, state.w_r[i])
-        f = forwardweight(state.L, state.w_r[i])
-        w_r = readweight(b, c_r, f, rhs[i].π)
-        state.w_r[i] = w_r
+    function new_wr(L, old_wr, M, rh)
+        cr = contentaddress(rh.k, M, rh.β)
+        b = backwardweight(L, old_wr)
+        f = forwardweight(L, old_wr)
+        wr = readweight(b, cr, f, rh.π)
+        wr
     end
+    state.w_r = [new_wr(state.L, state.w_r[i], M, rhs[i]) for i in 1:length(rhs)]
+    state
 end
+
+@adjoint update_state_after_read!(state::State, M, rhs::AbstractArray) =
+    update_state_after_read!(state, M, rhs), _ -> nothing
 
 erase_and_add(M, w_w, e, a) = M .* (ones(size(M)) - w_w * e') + w_w * a'
