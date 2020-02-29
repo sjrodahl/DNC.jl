@@ -1,3 +1,6 @@
+using Base: cumprod
+using Flux: param
+
 """
     contentaddress(key, M, β[, K])
 
@@ -5,7 +8,8 @@ Compute the similarity K (default cosine similarity) between all rows of memory 
 β acts as sharpener: high values concentrate weights, low values (<1) blurs them.
 """
 function contentaddress(key, M, β, K=cosinesim)
-    xs = [K(key, row) for row in eachrow(M)]
+    r, c = size(M)
+    xs = [K(key, M[row,:]) for row in 1:r]
     weighted_softmax(xs, β)
 end
 
@@ -25,15 +29,38 @@ end
 
 usage(u_prev, write_weights, 𝜓) = (u_prev + write_weights - (u_prev.*write_weights)) .* 𝜓
 
-function allocationweighting(u)
+const _EPSILON = 1e-6
+
+
+cumprod_exclusive(arr::AbstractArray) = cumprod(arr) ./ arr
+
+function allocationweighting(u::AbstractArray; eps::AbstractFloat=_EPSILON)
+    u = eps .+ (1 - eps) .* u # Ensure values are large enough for numerical stability in cumprod_exclusive
     N = length(u)
-    a = zeros(N)
-    ϕ = sortperm(u) # Indices in ascending order of usage
-    for j in 1:N
-        a[ϕ[j]] = (1-u[ϕ[j]])*foldl(*, [u[ϕ[i]] for i in 1:(j-1)])
-    end
+    ϕ = sortperm(u)
+    sortedusage = u[ϕ]
+    prod_sortedusage = cumprod_exclusive(sortedusage)
+    sortedalloc = (1 .- sortedusage) .* prod_sortedusage
+    a = sortedalloc[ϕ]
     a
+ end
+
+function allocationweighting(free_gate, prev_w_r, prev_w_w, prev_usage; eps::AbstractFloat=_EPSILON)
+    𝜓 = memoryretention(prev_w_r, free_gate)
+    u = usage(prev_usage, prev_w_w, 𝜓)
+    allocationweighting(u)
 end
+
+function allocationweighting(free_gate, state::State; eps::AbstractFloat=_EPSILON)
+    @unpack w_r, w_w, u = state
+    allocationweighting(free_gate, w_r, w_w, u)
+end
+
+using Zygote: @adjoint
+# The sorting of allocation weighting introduce discontinuities
+# in the backward pass, so we set the pullback to 1
+@adjoint allocationweighting(u::AbstractArray; eps=_EPSILON) =
+    allocationweighting(u; eps=eps), Δ -> (Δ, Δ)
 
 function writeweight(c_w, a, g_w, g_a)
     return g_w*(g_a.*(a) + (1-g_a)c_w)
