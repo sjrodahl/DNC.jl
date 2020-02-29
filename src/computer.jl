@@ -38,15 +38,17 @@ DNCCell(in::Int, out::Int, N::Int, W::Int, R::Int; init=Flux.glorot_uniform) =
 
 function (m::DNCCell)(h, x)
     @unpack L, w_w, w_r, u = m.state
+    numreads = m.R
     out = m.controller([x;h])
     v = out[1:m.Y]
     ξ = out[m.Y+1:length(out)]
-    rh, wh = split_ξ(ξ, m.W)
-    freegate = [rh.f]
+    rhs, wh = split_ξ(ξ, numreads, m.W)
+    freegate = [rh.f for rh in rhs]
     m.M = writemem(m.M, wh, freegate, w_w, w_r, u)
     update_state_after_write!(m.state, m.M, wh, freegate)
-    r = readmem(m.M, rh, L, w_r[1])
-    update_state_after_read!(m.state, m.M, [rh])
+    r = [readmem(m.M, rh, L, w_r[1]) for rh in rhs]
+    r = vcat(r...)
+    update_state_after_read!(m.state, m.M, rhs)
     m.readvectors = r # Flatten list of lists
     return r, calcoutput(v, r, m.Wr)
 end

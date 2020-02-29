@@ -27,7 +27,7 @@ using Flux
 end
 
 @testset "Learn" begin
-    R = 1
+    R = 2
     N = 10
     W = 16
     X = 4
