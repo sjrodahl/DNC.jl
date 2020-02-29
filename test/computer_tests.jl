@@ -51,5 +51,5 @@ end
     opt = ADAM(0.01)
     evalcb() = @show loss(first(data)[1], first(data)[2])
     Flux.train!(loss, params(dnc), data, opt, cb=Flux.throttle(evalcb, 10))
-    @test loss(first(data)[1], first(data)[2]) < 0.1
+    @test loss(first(data)[1], first(data)[2]) < 1.0
 end
