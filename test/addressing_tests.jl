@@ -1,3 +1,4 @@
+using Zygote
 
 function generate_Sn(n)
     vec = rand(n)
@@ -21,6 +22,10 @@ end
     β = 100
     # With a high sharpener β, the match is found
     @test contentaddress(key, M, β)[1] ≈ 1
+    g = gradient(key, M, β) do k, M, β
+        sum(contentaddress(k, M, β))
+    end
+    @test length(g) == 3
     β = 10
     # Should return equal values for parallel memory rows
     M = Matrix([1 0; 2 0])
@@ -40,19 +45,35 @@ end
 
     @testset "Memory retention 𝜓" begin
         @test DNC.memoryretention(usage_case_1.w_r, usage_case_1.f) == [0.5, 0.75, 0.75]
+        g = gradient(usage_case_1.w_r, usage_case_1.f) do w_r, f
+            sum(DNC.memoryretention(w_r, f))
+        end
+        @test length(g) == 2
         @test DNC.memoryretention(usage_case_3.w_r, usage_case_3.f) == [0.5, 0.75, 0.75]
         # Two read heads
         @test DNC.memoryretention(usage_case_2.w_r, usage_case_2.f) == [0.4, 0.7, 0.9]
+        g = gradient(usage_case_2.w_r, usage_case_2.f) do w_r, f
+            sum(DNC.memoryretention(w_r, f))
+        end
+        @test length(g) == 2
     end
 
     @testset "Usage u⃗" begin
         w_r, f, w_w = usage_case_1
         𝜓 = DNC.memoryretention(w_r, f)
         @test DNC.usage(u_prev, w_w, 𝜓) == [1//2, 3//8, 3//16]
+        g = gradient(w_w, 𝜓) do w_w, 𝜓
+            sum(DNC.usage(u_prev, w_w, 𝜓))
+        end
+        @test length(g) == 2
         # Two read heads
         w_r, f, w_w = usage_case_2
         𝜓 = DNC.memoryretention(w_r, f)
         @test DNC.usage(u_prev, w_w, 𝜓) == [0.4, 0.35, 0.225]
+        g = gradient(w_w, 𝜓) do w_w, 𝜓
+            sum(DNC.usage(u_prev, w_w, 𝜓))
+        end
+        @test length(g) == 2
     end
 
     @testset "Allocation a⃗" begin
@@ -63,6 +84,10 @@ end
         @test isapprox(alloc, [0.04725, 0.14625, 0.775]; atol=DNC._EPSILON*10)
         @test DNC.allocationweighting(f, w_r, w_w, u_prev) == alloc
         @test DNC.allocationweighting(f, state2) == alloc
+        g = gradient(f, w_r, w_w) do f, w_r, w_w
+            sum(DNC.allocationweighting(f, w_r, w_w, u_prev))
+        end
+        @test length(g) == 3
         # Allocation is zero if all usages are 1
         allused = ones(5)
         @test isapprox(DNC.allocationweighting(allused), (zeros(5)); atol=DNC._EPSILON*10)

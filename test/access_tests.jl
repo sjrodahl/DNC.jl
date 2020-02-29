@@ -1,4 +1,5 @@
 using Parameters
+using Zygote
 
 M = Matrix(
     [1.0 2 3;
@@ -61,18 +62,42 @@ state = State(
     @testset "Read" begin
         @unpack L, w_r = state
         r1 = readmem(M, contentread, L, w_r[1])
+        g = gradient(contentread) do rh
+            sum(readmem(M, rh, L, w_r[1]))
+        end
         @test r1 == M[1,:]
         r2 = readmem(M, backwardread, L, w_r[1])
+        g = gradient(backwardread) do rh
+            sum(readmem(M, rh, L, w_r[1]))
+        end
         @test r2 == M[1, :]
         r3 = readmem(M, forwardread, L, w_r[1])
+        g = gradient(forwardread) do rh
+            sum(readmem(M, rh, L, w_r[1]))
+        end
         @test r3 == M[3, :]
     end
     @testset "Write" begin
         @unpack w_w, w_r, u = state
-        newM = writemem(M, contentwrite, [contentread], w_w, w_r, u)
+        newM = writemem(M, contentwrite, [contentread.f], w_w, w_r, u)
+        g = gradient(M, contentwrite, [contentread.f], w_w, w_r, u) do M, wh, rh, ww, wr, u
+            sum(writemem(M, wh, rh, ww, wr, u))
+        end
         @test isapprox(newM[1,:], contentwrite.v, atol=1e-2)
-        newM2 = writemem(M, allocationwrite, [contentread], w_w, w_r, u)
+        newM2 = writemem(M, allocationwrite, [contentread.f], w_w, w_r, u)
         @test isapprox(newM2[3,:], contentwrite.v, atol=1e-2)
+    end
+end
+
+@testset "Gradients" begin
+    @testset "Read gradient" begin
+        @unpack L, w_r = state
+        r1 = readmem(M, contentread, L, w_r[1])
+        function f(M, contentread, L, w_r)
+            sum(readmem(M, contentread, L, w_r))
+        end
+        readmem_g = gradient(f, M, contentread, L, w_r[1])
+        @test true
     end
 end
 
