@@ -30,7 +30,7 @@ end
     k::A # read key
     β::T # key strength
     f::T # free gate
-    π::A # stractArray{A, 1} # read mode
+    π::A # read mode
 end
 
 # L should be updated before this
@@ -46,12 +46,11 @@ end
 
 function writemem(M,
         wh::WriteHead,
-        rhs::AbstractArray,
+        free::AbstractArray,
         prev_w_w::AbstractArray,
         prev_w_r::AbstractArray,
         prev_usage::AbstractArray)
     @unpack k, β, g_a, g_w, e, v = wh
-    free = [rh.f for rh in rhs]
     c_w = contentaddress(k, M, β)
     𝜓 = memoryretention(prev_w_r, free)
     u = usage(prev_usage, prev_w_w, 𝜓)

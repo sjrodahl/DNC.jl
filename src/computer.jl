@@ -5,12 +5,11 @@ using Parameters
 import Flux.hidden
 
 
-mutable struct DNCCell{V, A}
+mutable struct DNCCell
     controller
-    readvectors::V
-    Wr::A
-    M::A
-    R::Int
+    readvectors
+    Wr
+    M
     W::Int
     X::Int
     Y::Int
@@ -23,7 +22,6 @@ DNCCell(controller, in::Int, out::Int, N::Int, W::Int, R::Int; init=Flux.glorot_
         zeros(R*W),
         init(out, R*W),
         init(N, W),
-        R,
         W,
         in,
         out,
@@ -36,7 +34,6 @@ DNCCell(in::Int, out::Int, memsize::Tuple, R::Int; init=Flux.glorot_uniform) =
         zeros(R*memsize[2]),
         init(out, R*memsize[2]),
         init(memsize...),
-        R,
         memsize[2],
         in,
         out,
@@ -48,13 +45,14 @@ function (m::DNCCell)(h, x)
     out = m.controller([x;h])
     v = out[1:m.Y]
     ξ = out[m.Y+1:length(out)]
-    rhs, wh = split_ξ(ξ, m.R, m.W)
-    m.M = writemem(m.M, wh, rhs, w_w, w_r, u)
-    update_state_after_write!(m.state, m.M, wh, [rh.f for rh in rhs])
-    r = [readmem(m.M, rhs[i], L, w_r[i]) for i in 1:m.R]
-    update_state_after_read!(m.state, m.M, rhs)
-    m.readvectors = vcat(r...) # Flatten list of lists
-    return m.readvectors, calcoutput(v, r, m.Wr)
+    rh, wh = split_ξ(ξ, m.W)
+    freegate = [rh.f]
+    m.M = writemem(m.M, wh, freegate, w_w, w_r, u)
+    update_state_after_write!(m.state, m.M, wh, freegate)
+    r = readmem(m.M, rh, L, w_r[1])
+    update_state_after_read!(m.state, m.M, [rh])
+    m.readvectors = r # Flatten list of lists
+    return r, calcoutput(v, r, m.Wr)
 end
 
 hidden(m::DNCCell) = m.readvectors

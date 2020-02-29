@@ -8,7 +8,8 @@ Compute the similarity K (default cosine similarity) between all rows of memory 
 β acts as sharpener: high values concentrate weights, low values (<1) blurs them.
 """
 function contentaddress(key, M, β, K=cosinesim)
-    xs = [K(key, row) for row in eachrow(M)]
+    r, c = size(M)
+    xs = [K(key, M[row,:]) for row in 1:r]
     weighted_softmax(xs, β)
 end
 
@@ -54,6 +55,12 @@ function allocationweighting(free_gate, state::State; eps::AbstractFloat=_EPSILO
     @unpack w_r, w_w, u = state
     allocationweighting(free_gate, w_r, w_w, u)
 end
+
+using Zygote: @adjoint
+# The sorting of allocation weighting introduce discontinuities
+# in the backward pass, so we set the pullback to 1
+@adjoint allocationweighting(u::AbstractArray; eps=_EPSILON) =
+    allocationweighting(u; eps=eps), Δ -> (Δ, Δ)
 
 function writeweight(c_w, a, g_w, g_a)
     return g_w*(g_a.*(a) + (1-g_a)c_w)
