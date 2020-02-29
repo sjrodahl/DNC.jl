@@ -10,6 +10,7 @@ mutable struct DNCCell
     readvectors
     Wr
     M
+    R::Int
     W::Int
     X::Int
     Y::Int
@@ -22,22 +23,17 @@ DNCCell(controller, in::Int, out::Int, N::Int, W::Int, R::Int; init=Flux.glorot_
         zeros(R*W),
         init(out, R*W),
         init(N, W),
+        R,
         W,
         in,
         out,
         State(N, R)
     )
 
-DNCCell(in::Int, out::Int, memsize::Tuple, R::Int; init=Flux.glorot_uniform) =
+DNCCell(in::Int, out::Int, N::Int, W::Int, R::Int; init=Flux.glorot_uniform) =
     DNCCell(
-        LSTM(inputsize(in, R, memsize[2]), outputsize(R, memsize[1], memsize[2], in, out)),
-        zeros(R*memsize[2]),
-        init(out, R*memsize[2]),
-        init(memsize...),
-        memsize[2],
-        in,
-        out,
-        State(memsize[1], R)
+        LSTM(inputsize(in, R, W), outputsize(R, N, W, in, out)),
+        in, out, N, W, R; init=init
     )
 
 function (m::DNCCell)(h, x)
