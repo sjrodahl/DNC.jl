@@ -1,32 +1,32 @@
 using Zygote: @adjoint
 
 
-mutable struct State{A<:AbstractArray, V<:AbstractArray}
+@with_kw mutable struct State{A<:AbstractArray, V<:AbstractArray}
     L::Matrix
     p::V
     u::V
-    ww::V
-    wr::A
+    w_w::V
+    w_r::A
 end
 
 State(N::Int, R::Int) = State(
-    zeros(N, N),
-    zeros(N),
-    zeros(N),
-    zeros(N),
-    [zeros(N) for i in 1:R]
+    L=zeros(N, N),
+    p = zeros(N),
+    u = zeros(N),
+    w_w = zeros(N),
+    w_r = [zeros(N) for i in 1:R]
     )
 
-struct WriteHead{A<:AbstractArray, T<:Real}
+@with_kw struct WriteHead{A<:AbstractArray, T<:Real}
     k::A # Write key
     β::T # Key strength
     e::A # erase
     v::A # add
-    ga::T # allocation gate
-    gw::T # write gate
+    g_a::T # allocation gate
+    g_w::T # write gate
 end
 
-struct ReadHead{A<:AbstractArray, T<:Real}
+@with_kw struct ReadHead{A<:AbstractArray, T<:Real}
     k::A # read key
     β::T # key strength
     f::T # free gate
@@ -47,29 +47,29 @@ end
 function writemem(M,
         wh::WriteHead,
         free::AbstractArray,
-        prev_ww::AbstractArray,
-        prev_wr::AbstractArray,
+        prev_w_w::AbstractArray,
+        prev_w_r::AbstractArray,
         prev_usage::AbstractArray)
-    k, β, ga, gw, e, v = wh.k, wh.β, wh.ga, wh.gw, wh.e, wh.v
-    cw = contentaddress(k, M, β)
-    𝜓 = memoryretention(prev_wr, free)
-    u = usage(prev_usage, prev_ww, 𝜓)
+    @unpack k, β, g_a, g_w, e, v = wh
+    c_w = contentaddress(k, M, β)
+    𝜓 = memoryretention(prev_w_r, free)
+    u = usage(prev_usage, prev_w_w, 𝜓)
     a = allocationweighting(u)
-    ww = writeweight(cw, a, gw, ga)
-    newmem = eraseandadd(M, ww, e, v)
+    w_w = writeweight(c_w, a, g_w, g_a)
+    newmem = erase_and_add(M, w_w, e, v)
     newmem
 end
 
 function update_state_after_write!(state::State, M, wh::WriteHead, free::AbstractArray)
-    cw = contentaddress(wh.k, M, wh.β)
-    𝜓 = memoryretention(state.wr, free)
-    u = usage(state.u, state.ww, 𝜓)
+    c_w = contentaddress(wh.k, M, wh.β)
+    𝜓 = memoryretention(state.w_r, free)
+    u = usage(state.u, state.w_w, 𝜓)
     a = allocationweighting(u)
-    ww = writeweight(cw, a, wh.gw, wh.ga)
+    w_w = writeweight(c_w, a, wh.g_w, wh.g_a)
     state.u = u
-    state.ww = ww
-    updatelinkmatrix!(state.L, state.p, state.ww)
-    state.p = precedenceweight(state.p, state.ww)
+    state.w_w = w_w
+    updatelinkmatrix!(state.L, state.p, state.w_w)
+    state.p = precedenceweight(state.p, state.w_w)
 end
 
 @adjoint update_state_after_write!(state::State, M, wh::WriteHead, free::AbstractArray) =
@@ -83,11 +83,11 @@ function update_state_after_read!(state::State, M, rhs::AbstractArray)
         wr = readweight(b, cr, f, rh.π)
         wr
     end
-    state.wr = [new_wr(state.L, state.wr[i], M, rhs[i]) for i in 1:length(rhs)]
+    state.w_r = [new_wr(state.L, state.w_r[i], M, rhs[i]) for i in 1:length(rhs)]
     state
 end
 
 @adjoint update_state_after_read!(state::State, M, rhs::AbstractArray) =
     update_state_after_read!(state, M, rhs), _ -> nothing
 
-eraseandadd(M, ww, e, a) = M .* (ones(size(M)) - ww * e') + ww * a'
+erase_and_add(M, w_w, e, a) = M .* (ones(size(M)) - w_w * e') + w_w * a'
