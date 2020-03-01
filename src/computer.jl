@@ -1,6 +1,5 @@
 using Flux: @functor
 using Flux: softmax, σ
-using Parameters
 
 import Flux.hidden
 

@@ -1,4 +1,3 @@
-using Parameters
 using Zygote
 
 M = Matrix(
@@ -60,7 +59,7 @@ state = State(
 
 @testset "Sharp read/write" begin
     @testset "Read" begin
-        @unpack L, wr = state
+        L, wr = state.L, state.wr
         r1 = readmem(M, contentread, L, wr[1])
         g = gradient(contentread) do rh
             sum(readmem(M, rh, L, wr[1]))
@@ -78,7 +77,7 @@ state = State(
         @test r3 == M[3, :]
     end
     @testset "Write" begin
-        @unpack ww, wr, u = state
+        ww, wr, u = state.ww, state.wr, state.u
         newM = writemem(M, contentwrite, [contentread.f], ww, wr, u)
         g = gradient(M, contentwrite, [contentread.f], ww, wr, u) do M, wh, rh, ww, wr, u
             sum(writemem(M, wh, rh, ww, wr, u))
@@ -91,7 +90,7 @@ end
 
 @testset "Gradients" begin
     @testset "Read gradient" begin
-        @unpack L, wr = state
+        L, wr = state.L, state.wr
         r1 = readmem(M, contentread, L, wr[1])
         function f(M, contentread, L, wr)
             sum(readmem(M, contentread, L, wr))

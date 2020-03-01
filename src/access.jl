@@ -35,7 +35,7 @@ end
 
 # L should be updated before this
 function readmem(M, rh::ReadHead, L::Matrix, prev_wr)
-    @unpack k, β, π = rh
+    k, β, π = rh.k, rh.β, rh.π
     cr = contentaddress(k, M, β)
     b = backwardweight(L, prev_wr)
     f = forwardweight(L, prev_wr)
