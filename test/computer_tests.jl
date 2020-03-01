@@ -38,7 +38,7 @@ end
     controller = LSTM(inputsize, outputsize)
     dnc = Dnc(controller, X, Y, N, W, R)
 
-    function generate_data(in, out, n=100)
+    function generatedata(in, out, n=100)
         w = rand(out, in)
         b = rand(out)
         Xs = [rand(in) for i in 1:n]
@@ -46,7 +46,7 @@ end
         zip(Xs, Ys)
     end
 
-    data = generate_data(X, Y, 100)
+    data = generatedata(X, Y, 100)
     loss(x, y) = Flux.mse(dnc(x), y)
     opt = ADAM(0.01)
     evalcb() = @show loss(first(data)[1], first(data)[2])
