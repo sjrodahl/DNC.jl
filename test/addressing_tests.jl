@@ -1,4 +1,5 @@
 using Zygote
+using DNC: contentaddress
 
 in_Sn(vec) = sum(vec) == 1.0
 in_Δn(vec) = sum(vec) >= 0.0 && sum(vec) <= 1.0

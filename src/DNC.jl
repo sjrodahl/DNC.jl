@@ -4,8 +4,6 @@ using Flux
 using LinearAlgebra
 using Zygote
 
-export contentaddress
-export predict
 export readmem
 export writemem
 export ReadHead
