@@ -10,6 +10,7 @@ mutable struct DNCCell
     readvectors
     Wr
     M
+    R::Int
     W::Int
     X::Int
     Y::Int
@@ -22,35 +23,32 @@ DNCCell(controller, in::Int, out::Int, N::Int, W::Int, R::Int; init=Flux.glorot_
         zeros(R*W),
         init(out, R*W),
         init(N, W),
+        R,
         W,
         in,
         out,
         State(N, R)
     )
 
-DNCCell(in::Int, out::Int, memsize::Tuple, R::Int; init=Flux.glorot_uniform) =
+DNCCell(in::Int, out::Int, N::Int, W::Int, R::Int; init=Flux.glorot_uniform) =
     DNCCell(
-        LSTM(inputsize(in, R, memsize[2]), outputsize(R, memsize[1], memsize[2], in, out)),
-        zeros(R*memsize[2]),
-        init(out, R*memsize[2]),
-        init(memsize...),
-        memsize[2],
-        in,
-        out,
-        State(memsize[1], R)
+        LSTM(inputsize(in, R, W), outputsize(R, N, W, in, out)),
+        in, out, N, W, R; init=init
     )
 
 function (m::DNCCell)(h, x)
     @unpack L, w_w, w_r, u = m.state
+    numreads = m.R
     out = m.controller([x;h])
     v = out[1:m.Y]
     ξ = out[m.Y+1:length(out)]
-    rh, wh = split_ξ(ξ, m.W)
-    freegate = [rh.f]
+    rhs, wh = split_ξ(ξ, numreads, m.W)
+    freegate = [rh.f for rh in rhs]
     m.M = writemem(m.M, wh, freegate, w_w, w_r, u)
     update_state_after_write!(m.state, m.M, wh, freegate)
-    r = readmem(m.M, rh, L, w_r[1])
-    update_state_after_read!(m.state, m.M, [rh])
+    r = [readmem(m.M, rh, L, w_r[1]) for rh in rhs]
+    r = vcat(r...)
+    update_state_after_read!(m.state, m.M, rhs)
     m.readvectors = r # Flatten list of lists
     return r, calcoutput(v, r, m.Wr)
 end
