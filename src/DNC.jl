@@ -2,11 +2,8 @@ module DNC
 
 using Flux
 using LinearAlgebra
-using Parameters
 using Zygote
 
-export contentaddress
-export predict
 export readmem
 export writemem
 export ReadHead
