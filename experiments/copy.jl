@@ -36,8 +36,9 @@ end
 function loss(x, y; printres=false)
     res = model(x)
     printres && println(res)
+    printres && println(y)
     if Bool(x[end])
-        loss = Flux.mse(res, y)
+        loss = Flux.logitcrossentropy(res, y)
     else
         # Ignore observation examples with flag=0
         loss = 0.0
@@ -94,12 +95,12 @@ opt = ADAM(0.01)
 
 nbits = X-1
 seqlength = 3
-nseqs = 1000
+nseqs = 500000
 
 data = generatedata(nbits, seqlength, nseqs)
 testseq = sequence_to_examples(singlesequence(nbits, seqlength))
 
-evalcb = throttle(2) do
+evalcb = throttle(10) do
     println("Training model...")
     showseq(testseq)
     @save "model-checkpoint.bson" model
