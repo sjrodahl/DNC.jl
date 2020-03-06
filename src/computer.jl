@@ -1,7 +1,7 @@
 using Flux: @functor
 using Flux: softmax, σ
 
-import Flux.hidden
+import Flux.hidden, Flux.trainable
 
 
 mutable struct DNCCell
@@ -54,10 +54,19 @@ end
 
 hidden(m::DNCCell) = m.readvectors
 
-@functor DNCCell controller, Wr
+@functor DNCCell
+trainable(m::DNCCell) = m.controller, m.Wr
+
+import Base.show
+function Base.show(io::IO, l::DNCCell)
+    print(io, "DNCCell($(l.X), $(l.Y))\n")
+    print(io, "Memory size: ($(size(l.M, 1)), $(size(l.M, 2)))\n")
+    print(io, "Read heads: $(l.R)")
+end
+
 
 """
-    Dnc(controller, in::Int, out::Int, N::Int, W::Int, R::Int)
+    Dnc(controller, in::Integer, out::Integer, N::Integer, W::Integer, R::Integer)
 
 Initialise a Differentiable Neural Computer with memory size (N, W) and R read heads.
 
