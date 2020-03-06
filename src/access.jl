@@ -34,6 +34,11 @@ struct ReadHead{A<:AbstractArray, T<:Real}
 end
 
 # L should be updated before this
+"""
+    readmem(M, rh::ReadHead, L::Matrix, prev_wr)
+
+Fuzzy read the memory M. 
+"""
 function readmem(M, rh::ReadHead, L::Matrix, prev_wr)
     k, β, π = rh.k, rh.β, rh.π
     cr = contentaddress(k, M, β)
@@ -44,6 +49,12 @@ function readmem(M, rh::ReadHead, L::Matrix, prev_wr)
     r
 end
 
+"""
+    writemem(M, wh::WriteHead, free::AbstractArray, prev_ww::AbstractArray, prev_wr::AbstractArray, prev_usage::AbstractArray)
+
+Fuzzy write to memory. Location is based on wither content similarity or row usage.
+
+"""
 function writemem(M,
         wh::WriteHead,
         free::AbstractArray,
