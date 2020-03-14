@@ -38,33 +38,68 @@ end
 #end
 #
 
-function split_ξ(ξ, R::Int, W::Int)
-    length(ξ) != (W*R)+3W+5R+3 &&
-        error("Length of xi-vector is incorrect. Expected $((W*R)+3W+5R+3), got $(length(ξ))")
-    # read keys
-    kr = [ξ[((r-1)*W+1):r*W] for r in 1:R]
-    βr = ξ[(R*W+1):(R*W+R)]
-    kw = ξ[(R*W+1+R):(R*W+R+W)]
-    βw = ξ[(R*W+R+W+1)]
-    ê = ξ[(R*W+R+W+2):(R*W+R+2W+1)]
-    v = ξ[(R*W+R+2W+2):(R*W+R+3W+1)]
-    f̂ = ξ[(R*W+R+3W+2):(R*W+2R+3W+1)]
-    ĝa = ξ[(R*W+2R+3W+2)]
-    ĝw = ξ[(R*W+2R+3W+3)]
-    rest = ξ[(R*W+2R+3W+4):length(ξ)]
-    readmode = [rest[((r-1)*3+1):3r] for r in 1:R]
-    rhs = [ReadHead(
-            kr[i],
-            βr[i],
-            σ(f̂[i]),
-            Flux.softmax(readmode[i])) for i in 1:R]
-    wh = WriteHead(
-            kw,
-            βw,
-            σ.(ê),
-            v,
-            σ(ĝa),
-            σ(ĝw)
+#function split_ξ(ξ, R::Int, W::Int)
+#    length(ξ) != (W*R)+3W+5R+3 &&
+#        error("Length of xi-vector is incorrect. Expected $((W*R)+3W+5R+3), got $(length(ξ))")
+#    # read keys
+#    kr = [ξ[((r-1)*W+1):r*W] for r in 1:R]
+#    βr = ξ[(R*W+1):(R*W+R)]
+#    kw = ξ[(R*W+1+R):(R*W+R+W)]
+#    βw = ξ[(R*W+R+W+1)]
+#    ê = ξ[(R*W+R+W+2):(R*W+R+2W+1)]
+#    v = ξ[(R*W+R+2W+2):(R*W+R+3W+1)]
+#    f̂ = ξ[(R*W+R+3W+2):(R*W+2R+3W+1)]
+#    ĝa = ξ[(R*W+2R+3W+2)]
+#    ĝw = ξ[(R*W+2R+3W+3)]
+#    rest = ξ[(R*W+2R+3W+4):length(ξ)]
+#    readmode = [rest[((r-1)*3+1):3r] for r in 1:R]
+#    rhs = [ReadHead(
+#            kr[i],
+#            βr[i],
+#            σ(f̂[i]),
+#            Flux.softmax(readmode[i])) for i in 1:R]
+#    wh = WriteHead(
+#            kw,
+#            βw,
+#            σ.(ê),
+#            v,
+#            σ(ĝa),
+#            σ(ĝw)
+#    )
+#    return (rhs, wh)
+#end
+#
+function split_ξ(ξ, R, W)
+    lin(outsize) = Dense(size(ξ)[1], outsize)(ξ)
+    function lin(firstdim, seconddim)
+        transformed  = Dense(size(ξ)[1], firstdim * seconddim)(ξ)
+        transformed = reshape(transformed, :, firstdim, seconddim)
+        transformed
+    end
+    v = lin(W)
+    ê = lin(W)
+    f̂ = lin(R)
+    ĝa = lin(1)
+    ĝw = lin(1)
+    readmode = lin(R, 3)
+    kr = lin(R, W)
+    βr = lin(1)
+    kw = lin(W)
+    βw = lin(1)
+    return Dict(
+        :kr => kr,
+        :βr => βr,
+        :kw => kr,
+        :βw => βw,
+        :v => v,
+        :e => σ.(ê),
+        :f => σ.(f̂),
+        :ga => σ.(ĝa),
+        :gw => σ.(ĝw),
+        :π => mapslices(Flux.softmax, readmode; dims=[3])
     )
-    return (rhs, wh)
 end
+
+
+
+
