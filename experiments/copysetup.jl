@@ -7,10 +7,10 @@ using BSON: @save
 function singlesequence(nbits, seqlength)
     tocopy = BitArray(Int.(round.(rand(nbits, seqlength))))
     empty_examples = BitArray(zeros(nbits, seqlength))
-    flags = [falses(seqlength); trues(seqlength)]
-    xseqs = cat(cat(tocopy, empty_examples; dims=2), flags';dims=1)
-    yseqs = cat(BitArray(zeros(nbits, seqlength)), tocopy;dims=2)
-    xseqs, yseqs
+    mask = [falses(seqlength); trues(seqlength)]
+    xseqs =cat(tocopy, empty_examples; dims=2)
+    yseqs = cat(BitArray(zeros(nbits, seqlength)), tocopy; dims=2)
+    xseqs, yseqs, mask
 end
 
 # Data should (eventually be on the form [(x1, y1), (x2, y2)...])
@@ -24,7 +24,7 @@ end
 # Assuming sequence is a tuple of (seqx, seqy)
 #TODO: fix
 sequence_to_examples(sequence::Tuple) =
-    [(sequence[1][:,i], sequence[2][:,i]) for i in 1:size(sequence[1])[2]]
+    [(sequence[1][:,i], sequence[2][:,i], sequence[3][i]) for i in 1:size(sequence[1])[2]]
 
 function generatedata(nbits, seqlength, ntimes)
     data = generatesequence(nbits, seqlength, ntimes)
@@ -32,23 +32,19 @@ function generatedata(nbits, seqlength, ntimes)
     return vcat(split_seqs...)
 end
 
-function loss(x, y; printres=false)
-    res = model(x)
+function loss(x, y, mask; printres=false)
+    elem = cat(x, mask; dims=1)
+    res = model(elem)
     printres && println(res)
     printres && println(y)
-    if Bool(x[end])
-        loss = Flux.logitcrossentropy(res, y)
-    else
-        # Ignore observation examples with flag=0
-        loss = 0.0
-    end
-    printres && println(loss)
-    loss
+    l =  Flux.logitcrossentropy(res, y)
+    printres && println(l)
+    l
 end
 
 function showseq(testseq)
     for ex in testseq
-        loss(ex[1], ex[2]; printres=true)
+        loss(ex...; printres=true)
     end
 end
 
@@ -61,8 +57,8 @@ function mytrain!(loss, ps, data, opt; cb=()->())
     cb = runall(cb)
     @progress for d in data
         try
-            istestexample = d[1][end]
-            if istestexample
+            mask = d[3]
+            if Bool(mask)
                 gs = gradient(ps) do
                     loss(d...)
                 end

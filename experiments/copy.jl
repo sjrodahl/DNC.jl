@@ -1,3 +1,4 @@
+using Flux: @epochs
 using DNC
 
 include("copysetup.jl")
@@ -13,9 +14,14 @@ opt = ADAM(0.01)
 
 nbits = X-1
 seqlength = 3
-nseqs = 50000
+#nseqs = 10000
+nseqs = 10
 
 data = generatedata(nbits, seqlength, nseqs)
+xs = [d[1] for d in data]
+ys = [d[2] for d in data]
+mask = [d[3] for d in data]
+batcheddata = Flux.Data.DataLoader(xs, ys, mask, batchsize=2)
 testseq = sequence_to_examples(singlesequence(nbits, seqlength))
 
 evalcb = throttle(10) do
@@ -23,4 +29,4 @@ evalcb = throttle(10) do
     showseq(testseq)
     @save "model-$(nseqs)-checkpoint.bson" model
 end
-mytrain!(loss, params(model), data, opt, cb=evalcb)
+#train!(loss, params(model), batcheddata, opt, cb=evalcb)
