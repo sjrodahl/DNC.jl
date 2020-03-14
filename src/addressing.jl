@@ -41,6 +41,11 @@ A row is considered used (u[i]=1) if they have recently been written to and have
 """
 usage(u_prev, writeweights, 𝜓) = (u_prev + writeweights - (u_prev.*writeweights)) .* 𝜓
 
+function usage(u_prev, writeweights, readweights, freegate)
+    𝜓 = memoryretention(readweights, freegate)
+    usage(u_prev, writeweights, 𝜓)
+end
+
 const _EPSILON = 1e-6
 
 
