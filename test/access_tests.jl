@@ -9,46 +9,46 @@ M = Matrix(
     1 -2 3])
 
 # Content-based read
-contentread = Dict(
-    :kr => Matrix([1.0 2.0 0.0]'),
-    :βr => [100.0],
-    :f => [1.0],
-    :π => Matrix([0.0 1.0 0.0]')
+contentread = (
+    kr = Matrix([1.0 2.0 0.0]'),
+    βr = [100.0],
+    f = [1.0],
+    readmode = Matrix([0.0 1.0 0.0]')
     )
 
 # Temporal linkage based read
-backwardread = Dict(
-    :kr => Matrix([-1.0 -2.0 -5.0]'),
-    :βr=> 100.0,
-    :f => 0.0,
-    :π => Matrix([1.0 0.0 0.0]')
+backwardread = (
+    kr = Matrix([-1.0 -2.0 -5.0]'),
+    βr = 100.0,
+    f = 0.0,
+    readmode = Matrix([1.0 0.0 0.0]')
     )
 
-forwardread = Dict(
-                   :kr => Matrix([-1.0 -2.0 -5.0]'),
-    :βr => 100.0,
-    :f => 0.0,
-    :π => Matrix([0.0 0.0 1.0]')
+forwardread = (
+    kr = Matrix([-1.0 -2.0 -5.0]'),
+    βr = 100.0,
+    f = 0.0,
+    readmode = Matrix([0.0 0.0 1.0]')
     )
 
-contentwrite = Dict(
-    :kw => Matrix([1.0 2 0]'),
-    :βw => 10.0,
-    :e => [1.0, 1.0, 1.0],
-    :v => [10.0, 20.0, 30.0],
-    :ga => 0.0,
-    :gw => 1.0,
-    :f => 1.0
+contentwrite = (
+    kw = Matrix([1.0 2 0]'),
+    βw = 10.0,
+    e = [1.0, 1.0, 1.0],
+    v = [10.0, 20.0, 30.0],
+    ga = 0.0,
+    gw = 1.0,
+    f = 1.0
 )
 
-allocationwrite = Dict(
-    :kw => Matrix([1.0 1.0 1.0]'),
-    :βw => 1.0,
-    :e => [1.0, 1.0, 1.0],
-    :v => [10.0, 20.0, 30.0],
-    :ga =>1.0,
-    :gw =>1.0,
-    :f => 1.0
+allocationwrite = (
+    kw = Matrix([1.0 1.0 1.0]'),
+    βw = 1.0,
+    e = [1.0, 1.0, 1.0],
+    v = [10.0, 20.0, 30.0],
+    ga =1.0,
+    gw =1.0,
+    f = 1.0
 )
 
 
@@ -100,4 +100,25 @@ end
     ww2 = round.(writeweights(M, allocationwrite, state.ww, state.wr, state.u); digits=3)
     new2 = DNC.eraseandadd(M, ww2, allocationwrite[:e], allocationwrite[:v]) 
     @test new2[3,:] == allocationwrite[:v]
+end
+
+using Random
+rng = MersenneTwister(234)
+@testset "MemoryAccess" begin
+    insize, N, W, R = 20, 5, 10, 2
+    ma = DNC.MemoryAccess(insize, N, W, R)
+    inputs = rand(rng, insize)
+    @testset "Dimensions" begin
+        @test size(ma.M) == (N, W)
+        @test size(ma.state.wr) == (N, R)
+        readvectors = ma(inputs)
+        @test size(readvectors) == (W, R)
+    end
+    @testset "Gradient" begin
+        g = gradient(inputs) do inputs
+            sum(ma(inputs))
+        end
+        @test !isnothing(g)
+    end
+
 end
