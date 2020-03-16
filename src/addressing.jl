@@ -1,11 +1,7 @@
 using Base: cumprod
-using Distances
 using Flux: param
 
 
-
-
-cosinesim(u, v) = dot(u, v)/(norm(u)*norm(v))
 """
     contentaddress(key, M, β[, K])
 
@@ -124,7 +120,7 @@ using Zygote: @adjoint
 Calculate the write weightings over the matrix rows
 """
 function writeweight(cw, a, gw, ga)
-    return gw*(ga.*(a) + (1-ga)cw)
+    return gw*(ga.*(a) + (1-ga).*cw)
 end
 
 precedenceweight(p_prev, ww) = (1-sum(ww))*p_prev + ww
