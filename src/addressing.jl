@@ -1,5 +1,11 @@
 using Base: cumprod
+using Distances
 using Flux: param
+
+
+
+
+cosinesim(u, v) = dot(u, v)/(norm(u)*norm(v))
 """
     contentaddress(key, M, β[, K])
 
@@ -7,6 +13,13 @@ Compute the similarity K (default cosine similarity) between all rows of memory 
 β acts as sharpener: high values concentrate weights, low values (<1) blurs them.
 """
 function contentaddress(key, M, β, K=cosinesim)
+    wordsize, numreadheads = size(key)
+    numwords, _ = size(M)
+    all = [_contentaddress(key[:,i], M, β[i]) for i in 1:numreadheads]
+    return reshape(vcat(all...),numwords, numreadheads)
+end
+
+function _contentaddress(key, M, β, K=cosinesim)
     r, c = size(M)
     xs = [K(key, M[row,:]) for row in 1:r]
     weightedsoftmax(xs, β)
@@ -20,14 +33,14 @@ Determine how much each memory location will not be freed by the free gates.
 """
 function memoryretention end
 # Single read head
-function memoryretention(readweights::AbstractArray{<:Number, 1}, freegate)
-    return ones(length(readweights)) .- freegate.*readweights
-end
+#function memoryretention(readweights::AbstractArray{<:Number, 1}, freegate)
+#    return ones(length(readweights)) .- freegate.*readweights
+#end
 
 #  Multiple read heads
-function memoryretention(readweights::Array{<:AbstractArray, 1}, freegate)
-    R = length(readweights)
-    rs = [ones(length(readweights[i])) .- freegate[i].*readweights[i] for i in 1:R]
+function memoryretention(readweights, freegate)
+    N, R = size(readweights)
+    rs = [ones(N) .- freegate[i].*readweights[:,i] for i in 1:R]
     foldl(rs) do x, y
         x.*y
     end
