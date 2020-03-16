@@ -36,7 +36,7 @@ end
 @testset "Calc output" begin
     outsize = 5
     N, W, R = 3, 5, 2
-    readvectors = rand(rng, W, R)
+    readvectors = rand(rng, W*R)
     Wr = rand(rng, outsize, R*W)
     v = rand(rng, outsize)
     res = DNC.calcoutput(v, readvectors, Wr)
