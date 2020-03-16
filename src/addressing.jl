@@ -89,7 +89,7 @@ function allocationweighting end
 function allocationweighting(u::AbstractArray; eps::AbstractFloat=_EPSILON)
     u = eps .+ (1 - eps) .* u # Ensure values are large enough for numerical stability in cumprodexclusive
     N = length(u)
-    ϕ = sortperm(u)
+    ϕ = sortperm(u[:,1])
     sortedusage = u[ϕ]
     prodsortedusage = cumprodexclusive(sortedusage)
     sortedalloc = (1 .- sortedusage) .* prodsortedusage
