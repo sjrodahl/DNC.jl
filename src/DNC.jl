@@ -4,11 +4,9 @@ using Flux
 using LinearAlgebra
 using Zygote
 
-export readmem
-export writemem
-export ReadHead
+export readweights
+export writeweights
 export State
-export WriteHead
 export Dnc
 export DNCCell
 

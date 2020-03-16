@@ -29,56 +29,35 @@ end
     @test DNC.cosinesim([1, 0, 0], [0, 1, 0]) == 0
 end
 
-import Base.==
-==(a::ReadHead, b::ReadHead) = a.k==b.k && a.β==b.β && a.f==b.f && a.π==b.π
-==(a::WriteHead, b::WriteHead) = a.k==b.k && a.β==b.β && a.e==b.e && a.v==b.v && a.ga==b.ga && a.gw==b.gw
+@testset "Split ξ $(R) read head" for R in 1:2
+    W = 5
+    ξ = rand(10)
+    inputs = DNC.split_ξ(ξ, R, W)
+    @testset "Dimensions" begin
+        @test size(inputs[:kr]) == (W, R)
+        @test size(inputs[:kw]) == (W, 1)
+        @test size(inputs[:βr]) == (R,)
+        @test size(inputs[:βw]) == (1,)
+        @test size(inputs[:ga]) == (1,)
+        @test size(inputs[:gw]) == (1,)
+        @test size(inputs[:v]) == (W,)
+        @test size(inputs[:e]) == (W,)
+        @test size(inputs[:f]) == (R,)
+        @test size(inputs[:π]) == (3, R)
+    end
+    @testset "Domain" begin
+    # β ∈ [1, ∞)
+    @test !any(x->x<1, inputs[:βr])
+    @test !any(x->x<1, inputs[:βw])
+    # g ∈ [0, 1]
+    @test 0 <= inputs[:ga][1] <= 1
+    @test 0 <= inputs[:gw][1] <= 1
+    # e ∈ [0, 1]^W
+    @test !any(x -> x<0 || x>1, inputs[:e]) 
+    # f ∈ [0, 1]^R
+    @test !any(x -> x<0 || x>1, inputs[:f]) 
+    # π_i ∈ S_3
+    @test sum(inputs[:π]; dims=1)[1,:] == ones(R)
+    end
+end
 
-@testset "Split ξ" begin
-    @testset "One read head" begin
-        R = 1
-        W = 3
-        kr = [1.0, 2, 3]
-        βr = 10.0
-        kw = [4.0, 5, 6]
-        βw = 10.0
-        erase = [1.0, 1, 1]
-        add = [11.0, 12, 13]
-        free = 1.0
-        ga = 0.5
-        gw = 1.0
-        readmode = [0.0, 0.0, 1]
-
-        readhead = ReadHead(kr, βr, σ(free), softmax(readmode))
-        writehead = WriteHead(kw, βw, σ.(erase), add, σ(ga), σ(gw))
-
-        ξ = [kr; βr; kw; βw; erase; add; free; ga; gw; readmode]
-
-        rh, wh = DNC.split_ξ(ξ, R, W)
-        @test_broken rh[1] == readhead
-        @test_broken wh == writehead
-    end # begin
-
-    @testset "Multiple read heads" begin
-        R = 2
-        W = 5
-        kr = [[1.0, 2, 3, 4, 5],[6.0, 7, 8, 9, 10]]
-        βr = [10.0, 20.0]
-        kw = [11.0, 12, 13, 14, 15]
-        βw = 10.0
-        erase = [1.0, 1, 1, 3, 4]
-        add = [21.0, 22, 23, 24, 25]
-        free = [1.0, 0.0]
-        ga = 0.5
-        gw = 1.0
-        readmode = [[0.5, 0.5, 1.0],[0.0, 0.0, 1]]
-        rh1 = ReadHead(kr[1], βr[1], σ(free[1]), softmax(readmode[1]))
-        rh2 = ReadHead(kr[2], βr[2], σ(free[2]), softmax(readmode[2]))
-        writehead = WriteHead(kw, βw, σ.(erase), add, σ(ga), σ(gw))
-        ξ = [kr...; βr...; kw; βw; erase...; add...; free; ga; gw; readmode...]
-
-        rhs, wh = DNC.split_ξ(ξ, R, W)
-        @test_broken rhs[1] == rh1
-        @test_broken rhs[2] == rh2
-        @test_broken wh == writehead
-        end # begin
-end # begin

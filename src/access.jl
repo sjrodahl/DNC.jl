@@ -1,12 +1,12 @@
 using Zygote: @adjoint
 
 
-mutable struct State{A<:AbstractArray, V<:AbstractArray}
-    L::Matrix
-    p::V
-    u::V
-    ww::V
-    wr::A
+mutable struct State
+    L
+    p
+    u
+    ww
+    wr
 end
 
 State(N::Int, R::Int) = State(
@@ -14,7 +14,7 @@ State(N::Int, R::Int) = State(
     zeros(N),
     zeros(N),
     zeros(N),
-    [zeros(N) for i in 1:R]
+    zeros(N, R)
     )
 
 struct MemoryAccess
@@ -24,12 +24,14 @@ end
 MemoryAccess(N, W, R; init=Flux.glorot_uniform) = MemoryAccess(init(N, W), State(N, R))
 
 function (ma::MemoryAccess)(inputs)
-    inputs = split_ξ(inputs)
+    R = size(ma.state.wr)[2]
+    W = size(ma.M)[2]
+    inputs = split_ξ(inputs, R, W)
     p, u, ww, wr = ma.state.p, ma.state.u, ma.state.ww, ma.state.wr
-    usage = usage(u, ww, wr, inputs[:f])
+    u = usage(u, ww, wr, inputs[:f])
     ww= writeweights(M, inputs, ww, wr, u)
     ma.M = eraseandadd(ma.M, ww, inputs[:e], inputs[:v])
-    update_state_after_write(ma.state, ww, usage)
+    update_state_after_write(ma.state, ww, u)
     wr = readweights(inputs, ma.state.L, wr)
     update_state_after_read(ma.state, wr)
     readvectors = ma.M' * wr
@@ -42,8 +44,8 @@ end
 
 Fuzzy read the memory M. 
 """
-function readweights(inputs, L, prev_wr)
-    k, β, π = inputs[:k], inputs[:β], inputs[:π]
+function readweights(M, inputs, L, prev_wr)
+    k, β, π = inputs[:kr], inputs[:βr], inputs[:π]
     cr = contentaddress(k, M, β)
     b = backwardweight(L, prev_wr)
     f = forwardweight(L, prev_wr)
@@ -53,7 +55,7 @@ end
 """
     writeweights(M, inputs, free::AbstractArray, prev_ww::AbstractArray, prev_wr::AbstractArray, prev_usage::AbstractArray)
 
-Fuzzy write to memory. Location is based on wither content similarity or row usage.
+Fuzzy write to memory. Location is based on either content similarity or row usage.
 
 """
 function writeweights(M, inputs,

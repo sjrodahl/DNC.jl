@@ -19,7 +19,7 @@ function split_ξ(ξ, R, W)
     lin(outsize) = Dense(size(ξ)[1], outsize)(ξ)
     function lin(firstdim, seconddim)
         transformed  = Dense(size(ξ)[1], firstdim * seconddim)(ξ)
-        transformed = reshape(transformed, :, firstdim, seconddim)
+        transformed = reshape(transformed, firstdim, seconddim)
         transformed
     end
     v = lin(W)
@@ -27,22 +27,22 @@ function split_ξ(ξ, R, W)
     f̂ = lin(R)
     ĝa = lin(1)
     ĝw = lin(1)
-    readmode = lin(R, 3)
-    kr = lin(R, W)
-    βr = lin(1)
-    kw = lin(W)
+    readmode = lin(3, R)
+    kr = lin(W, R)
+    βr = lin(R)
+    kw = lin(W, 1)
     βw = lin(1)
     return Dict(
         :kr => kr,
-        :βr => βr,
-        :kw => kr,
-        :βw => βw,
+        :βr => oneplus.(βr),
+        :kw => kw,
+        :βw => oneplus.(βw),
         :v => v,
         :e => σ.(ê),
         :f => σ.(f̂),
         :ga => σ.(ĝa),
         :gw => σ.(ĝw),
-        :π => Flux.softmax(readmode; dims=3) 
+        :π => Flux.softmax(readmode; dims=1) 
     )
 end
 
