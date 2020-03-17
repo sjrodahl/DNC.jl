@@ -1,5 +1,7 @@
 using Base: cumprod
 using Flux: param
+
+
 """
     contentaddress(key, M, β[, K])
 
@@ -7,6 +9,13 @@ Compute the similarity K (default cosine similarity) between all rows of memory 
 β acts as sharpener: high values concentrate weights, low values (<1) blurs them.
 """
 function contentaddress(key, M, β, K=cosinesim)
+    wordsize, numreadheads = size(key)
+    numwords, _ = size(M)
+    all = [_contentaddress(key[:,i], M, β[i]) for i in 1:numreadheads]
+    return reshape(vcat(all...),numwords, numreadheads)
+end
+
+function _contentaddress(key, M, β, K=cosinesim)
     r, c = size(M)
     xs = [K(key, M[row,:]) for row in 1:r]
     weightedsoftmax(xs, β)
@@ -20,14 +29,14 @@ Determine how much each memory location will not be freed by the free gates.
 """
 function memoryretention end
 # Single read head
-function memoryretention(readweights::AbstractArray{<:Number, 1}, freegate)
-    return ones(length(readweights)) .- freegate.*readweights
-end
+#function memoryretention(readweights::AbstractArray{<:Number, 1}, freegate)
+#    return ones(length(readweights)) .- freegate.*readweights
+#end
 
 #  Multiple read heads
-function memoryretention(readweights::Array{<:AbstractArray, 1}, freegate)
-    R = length(readweights)
-    rs = [ones(length(readweights[i])) .- freegate[i].*readweights[i] for i in 1:R]
+function memoryretention(readweights, freegate)
+    N, R = size(readweights)
+    rs = [ones(N) .- freegate[i].*readweights[:,i] for i in 1:R]
     foldl(rs) do x, y
         x.*y
     end
@@ -40,6 +49,11 @@ Calculate the usage vector of the memory rows.
 A row is considered used (u[i]=1) if they have recently been written to and haven't been retained by the free gates (𝜓[i] =1)
 """
 usage(u_prev, writeweights, 𝜓) = (u_prev + writeweights - (u_prev.*writeweights)) .* 𝜓
+
+function usage(u_prev, writeweights, readweights, freegate)
+    𝜓 = memoryretention(readweights, freegate)
+    usage(u_prev, writeweights, 𝜓)
+end
 
 const _EPSILON = 1e-6
 
@@ -75,7 +89,7 @@ function allocationweighting end
 function allocationweighting(u::AbstractArray; eps::AbstractFloat=_EPSILON)
     u = eps .+ (1 - eps) .* u # Ensure values are large enough for numerical stability in cumprodexclusive
     N = length(u)
-    ϕ = sortperm(u)
+    ϕ = sortperm(u[:,1])
     sortedusage = u[ϕ]
     prodsortedusage = cumprodexclusive(sortedusage)
     sortedalloc = (1 .- sortedusage) .* prodsortedusage
@@ -106,7 +120,7 @@ using Zygote: @adjoint
 Calculate the write weightings over the matrix rows
 """
 function writeweight(cw, a, gw, ga)
-    return gw*(ga.*(a) + (1-ga)cw)
+    return gw*(ga.*(a) + (1-ga).*cw)
 end
 
 precedenceweight(p_prev, ww) = (1-sum(ww))*p_prev + ww

@@ -4,18 +4,16 @@ using Flux
 using LinearAlgebra
 using Zygote
 
-export readmem
-export writemem
-export ReadHead
+export readweights
+export writeweights
 export State
-export WriteHead
 export Dnc
 export DNCCell
 
 
-include("access.jl")
-include("computer.jl")
-include("addressing.jl")
 include("utils.jl")
+include("access.jl")
+include("addressing.jl")
+include("computer.jl")
 
 end # module
