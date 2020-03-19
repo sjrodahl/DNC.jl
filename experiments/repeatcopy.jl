@@ -1,4 +1,5 @@
 using Flux
+using Flux.Data: DataLoader
 # Represent a single sequence with observation, target and mask
 struct RepeatCopy
     obs
@@ -39,8 +40,11 @@ function prettyprint(data)
 end
 
 import Base.show
-
 function Base.show(io::IO, rp::RepeatCopy)
+    print(io, "RepeatCopy(obssize: $(size(rp.obs)), targetsize $(size(rp.target))")
+end
+
+function prettyprint(rp::RepeatCopy)
     print("Observation:\n")
     prettyprint(rp.obs)
     print("\nTarget:\n")
@@ -126,11 +130,20 @@ function loss(model, rp::RepeatCopy; printoutput=false)
     logits = runmodel(model, rp)
     l = maskedsigmoidcrossentropy(logits, rp.target, rp.mask)
     if printoutput
-        print(rp)
+        prettyprint(rp)
         printmodeloutput(logits, rp.mask)
         println("Loss = $l")
     end
     l
+end
+function loss(model, batcheddata::Array{RepeatCopy, 1}; printoutput=false)
+    batchloss = 0
+    for rp in batcheddata
+        l = loss(model, rp; printoutput=printoutput)
+        printoutput=false # only print from first batch
+        batchloss += l
+    end
+    batchloss
 end
 
 

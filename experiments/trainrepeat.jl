@@ -2,6 +2,7 @@ using DNC
 using Flux
 using Zygote
 
+using Flux.Data: DataLoader
 include("repeatcopy.jl")
 
 nbits = 4
@@ -13,21 +14,27 @@ X = nbits+2
 Y = nbits+1
 N, W, R = 16, 16, 2
 
-nseqs = 10000
+niter = 10000
+batchsize = 16
 seqs = [RepeatCopy(;
             nbits=nbits,
             maxrepeats=maxrepeats,
             minlength=minlength,
             maxlength=maxlength)
-        for i in 1:nseqs]
+        for i in 1:(niter*batchsize)]
+
+batcheddata = DataLoader(seqs, batchsize=batchsize)
 
 model = Dnc(X, Y, N, W, R)
 
-loss(rc::RepeatCopy; printoutput=false) = loss(model, rc; printoutput=printoutput)
+loss(rc; printoutput=false) = loss(model, rc; printoutput=printoutput)
 
+using BSON: @save
 using Flux: @progress, throttle
 using Flux.Optimise: update!, runall, StopException
 using Zygote: Params, gradient
+using Dates
+
 function mytrain!(loss, ps, data, opt; cb=()->())
     ps = Params(ps)
     cb = runall(cb)
@@ -46,12 +53,13 @@ function mytrain!(loss, ps, data, opt; cb=()->())
             end
         end
     end
+    @save "$(today())-dnc-$niter-$batchsize.bson" model opt
 end
 
 opt = RMSProp(1e-3)
 evalcb = throttle(10) do
-    idx = rand(1:nseqs)
+    idx = rand(1:length(seqs))
     loss(seqs[idx]; printoutput=true)
 end
 
-mytrain!(loss, params(model), seqs, opt; cb=evalcb)
+mytrain!(loss, params(model), batcheddata, opt; cb=evalcb)
