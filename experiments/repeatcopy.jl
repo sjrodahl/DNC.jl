@@ -106,7 +106,7 @@ function sigmoidlogitscrossentropy(logits, targets)
 end
 
 function maskedsigmoidcrossentropy(logits, target, mask)
-    l = (sum(sigmoidlogitscrossentropy(logits, target); dims=1) * mask)
+    l = sum(Flux.logitbinarycrossentropy.(logits, target); dims=1) * mask
     l[1]
 end
 
@@ -136,6 +136,7 @@ function loss(model, rp::RepeatCopy; printoutput=false)
     end
     l
 end
+
 function loss(model, batcheddata::Array{RepeatCopy, 1}; printoutput=false)
     batchloss = 0
     for rp in batcheddata
