@@ -1,67 +1,78 @@
-function monitored_readweight(io::IO, backw, content, forw, readmode)
+using DNC
+using Flux
+using DNC: MemoryAccess, split_ξ, update_state_after_write!, update_state_after_read!, eraseandadd, calcoutput
+using DNC: contentaddress, backwardweight, forwardweight, readweight, readweights, writeweight, writeweights
+using DNC: usage, memoryretention, allocationweighting
+
+import DNC.readweight, DNC.readweights, DNC.writeweight, DNC.writeweights
+
+
+function readweight(io::IO, backw, content, forw, readmode)
     rw = DNC.readweight(backw, content, forw, readmode)
     print(io, "readweight:",rw,"\n")
     rw
 end
 
-function monitored_readmem(io::IO, M, rh::ReadHead, L::Matrix, prev_wr)
-    k, β, π = rh.k, rh.β, rh.π
-    cr = DNC.contentaddress(k, M, β)
-    b = DNC.backwardweight(L, prev_wr)
-    f = DNC.forwardweight(L, prev_wr)
-    wr = monitored_readweight(io, b, cr, f, π)
-    r = M' * wr
-    r
+function readweights(io::IO, M, inputs, L, prev_wr)
+    k, β, readmode= inputs.kr, inputs.βr, inputs.readmode
+    cr = contentaddress(k, M, β)
+    b = backwardweight(L, prev_wr)
+    f = forwardweight(L, prev_wr)
+    wr = readweight(io, b, cr, f, readmode)
 end
 
-function monitored_writeweight(io::IO, cw, a, gw, ga)
+
+function writeweight(io::IO, cw, a, gw, ga)
     ww = DNC.writeweight(cw, a, gw, ga)
     print(io, "writeweight:", ww,"\n")
     ww
 end
 
 
-function monitored_writemem(io::IO, M,
-        wh::WriteHead,
-        free::AbstractArray,
-        prev_ww::AbstractArray,
-        prev_wr::AbstractArray,
-        prev_usage::AbstractArray)
-    k, β, ga, gw, e, v = wh.k, wh.β, wh.ga, wh.gw, wh.e, wh.v
-    cw = DNC.contentaddress(k, M, β)
-    𝜓 = DNC.memoryretention(prev_wr, free)
-    u = DNC.usage(prev_usage, prev_ww, 𝜓)
-    a = DNC.allocationweighting(u)
-    ww = monitored_writeweight(io, cw, a, gw, ga)
-    newmem = DNC.eraseandadd(M, ww, e, v)
-    newmem
+function writeweights(io::IO, M, inputs,
+        prev_ww,
+        prev_wr,
+        prev_usage)
+    k, β, ga, gw, e, v, free = inputs.kw, inputs.βw, inputs.ga[1], inputs.gw[1], inputs.e, inputs.v, inputs.f
+    cw = contentaddress(k, M, β)
+    𝜓 = memoryretention(prev_wr, free)
+    u = usage(prev_usage, prev_ww, 𝜓)
+    a = allocationweighting(u)
+    ww = writeweight(io, cw, a, gw, ga)
 end
 
-function monitoredprediction(io::IO, m, x)
-    c = m.cell
-    L, ww, wr, u = c.state.L, c.state.ww, c.state.wr, c.state.u
-    numreads = c.R
-    h = m.state
-    out = c.controller([x;h])
-    v = out[1:c.Y]
-    ξ = out[c.Y+1:length(out)]
-    rhs, wh = DNC.split_ξ(ξ, numreads, c.W)
-    freegate = [rh.f for rh in rhs]
-    c.M = monitored_writemem(io, c.M, wh, freegate, ww, wr, u)
-    DNC.update_state_after_write!(c.state, c.M, wh, freegate)
-    r = [monitored_readmem(io, c.M, rh, L, wr[1]) for rh in rhs]
-    r = vcat(r...)
-    DNC.update_state_after_read!(c.state, c.M, rhs)
-    c.readvectors = r # Flatten list of lists
-    return DNC.calcoutput(v, r, c.Wr)
 
+function (ma::MemoryAccess)(io::IO, inputs)
+    R = size(ma.state.wr)[2]
+    W = size(ma.M)[2]
+    inputs = split_ξ(inputs, ma.inputmaps)
+    p, u, ww, wr = ma.state.p, ma.state.u, ma.state.ww, ma.state.wr
+    u = usage(u, ww, wr, inputs.f)
+    ww= writeweights(io, ma.M, inputs, ww, wr, u)
+    ma.M = eraseandadd(ma.M, ww, inputs.e, inputs.v)
+    update_state_after_write!(ma.state, ww, u)
+    wr = readweights(io, ma.M, inputs, ma.state.L, wr)
+    update_state_after_read!(ma.state, wr)
+    readvectors = ma.M' * wr
+    readvectors
 end
 
-function monitored_loss(model, x, y)
+function monitoredprediction(io::IO, model, x)
+    m = model.cell
+    h = m.readvectors
+    out = m.controller([x;h])
+    v = out[1:m.Y]
+    ξ = out[m.Y+1:end]
+    r = m.memoryaccess(io, ξ)
+    r = reshape(r, size(r)[1]*size(r)[2])
+    return calcoutput(v, r, m.Wr)
+end
+
+
+function monitored_loss(model, x, y, mask)
     open("monitor.txt", "a") do io
         ŷ = monitoredprediction(io, model, x)
-        mask = x[end]
-        loss = mask * Flux.logitcrossentropy(ŷ, y)
+        loss = sum(mask * Flux.logitbinarycrossentropy.(ŷ, y))
         loss
     end
 end
