@@ -53,7 +53,7 @@ function mytrain!(loss, ps, data, opt; cb=()->())
             end
         end
     end
-    @save "$(today())-dnc-$niter-$batchsize.bson" model opt
+    @save "$(today())-dnc-$niter-$batchsize.bson" model
 end
 
 opt = RMSProp(1e-3)
