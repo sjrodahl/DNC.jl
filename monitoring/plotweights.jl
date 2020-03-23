@@ -1,9 +1,12 @@
+
+cd(@__DIR__)
 lines = readlines("../monitor.txt")
 lines = split.(lines, ":")
 
-readweights = [eval(Meta.parse(l[2])) for l in filter(x->x[1]=="readweight", lines)]
-writeweights = [eval(Meta.parse(l[2])) for l in filter(x->x[1]=="writeweight", lines)]
+filterlines(name) = [eval(Meta.parse(l[2])) for l in filter(x->x[1]==name, lines)]
 
-readweights = hcat(readweights...)
-writeweights = hcat(writeweights...)
+rws, wws = filterlines("readweight"), filterlines("writeweight")
+
+rws = hcat(rws...)
+wws = hcat(wws...)
 
