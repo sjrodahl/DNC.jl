@@ -13,24 +13,26 @@ function generate_Δn(n)
     vec
 end
 
+in_Sn(vec) = sum(vec) == 1.0
+in_Δn(vec) = sum(vec) >= 0.0 && sum(vec) <= 1.0
+
 @testset "Content-based addressing" begin
     M = Matrix(
         [0.1 0.5 1.5;
         -1.2 0.8 0.0]
         )
-    key = M[1,:]
-    key[1] = 0 # Avoid exact match
-    β = 100
+    key = Matrix(M')
+    key[1, 1] = 0 # Avoid exact match
+    β = [100.0, 100.0]
     # With a high sharpener β, the match is found
     @test contentaddress(key, M, β)[1] ≈ 1
     g = gradient(key, M, β) do k, M, β
-        sum(contentaddress(k, M, β))
+        sum(sum(contentaddress(k, M, β)))
     end
     @test length(g) == 3
-    β = 10
     # Should return equal values for parallel memory rows
-    M = Matrix([1 0; 2 0])
-    key = [1, 1]
+    M = [1 0; 2 0]
+    key = Matrix([1 1]')
     β = 1
     wc = contentaddress(key, M, β)
     @test wc[1] == wc[2]
@@ -38,9 +40,12 @@ end
 
 
 @testset "Memory allocation" begin
-    usagecase1 = (wr = [0.5, 0.25, 0.25], f=1, ww = [0.25, 0.5, 0.25])
-    usagecase2 = (wr = [[0.6, 0.3, 0.1], [0.0, 0.5, 0.5]], f=[1, 0], ww = [0.25, 0.5, 0.25])
-    usagecase3 = (wr = [[0.5, 0.25, 0.25]], f=[1], ww = [0.25, 0.5, 0.25])
+    usagecase1 = (wr = Matrix([0.5 0.25 0.25]'), f=1, ww = [0.25, 0.5, 0.25])
+    usagecase2 = (wr = [0.6 0.0;
+                        0.3 0.5;
+                        0.1 0.5],
+                  f=[1, 0],
+                  ww = [0.25, 0.5, 0.25])
     u_prev = [1.0, 0.0, 0.0]
     state2 = State(3, 2)
     state2.ww = usagecase2.ww
@@ -53,7 +58,6 @@ end
             sum(DNC.memoryretention(wr, f))
         end
         @test length(g) == 2
-        @test DNC.memoryretention(usagecase3.wr, usagecase3.f) == [0.5, 0.75, 0.75]
         # Two read heads
         @test DNC.memoryretention(usagecase2.wr, usagecase2.f) == [0.4, 0.7, 0.9]
         g = gradient(usagecase2.wr, usagecase2.f) do wr, f
