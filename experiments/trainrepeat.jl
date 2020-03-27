@@ -1,11 +1,12 @@
 cd(@__DIR__)
-using Pkg
-Pkg.activate("../.")
-Pkg.instantiate()
+#using Pkg
+#Pkg.activate("../.")
+#Pkg.instantiate()
 
 using DNC
 using Flux
 using Zygote
+using CuArrays
 
 using Flux.Data: DataLoader
 include("repeatcopy.jl")
@@ -26,11 +27,11 @@ seqs = [RepeatCopy(;
             maxrepeats=maxrepeats,
             minlength=minlength,
             maxlength=maxlength)
-        for i in 1:(niter*batchsize)]
+        for i in 1:(niter*batchsize)] |> gpu
 
 batcheddata = DataLoader(seqs, batchsize=batchsize)
 
-model = Dnc(X, Y, N, W, R)
+model = Dnc(X, Y, N, W, R) |> gpu
 
 loss(rc; printoutput=false) = loss(model, rc; printoutput=printoutput)
 
@@ -70,4 +71,4 @@ evalcb = throttle(10) do
     loss(seqs[idx]; printoutput=true)
 end
 
-mytrain!(loss, params(model), batcheddata, opt; cb=evalcb)
+@time mytrain!(loss, params(model), batcheddata, opt; cb=evalcb)
