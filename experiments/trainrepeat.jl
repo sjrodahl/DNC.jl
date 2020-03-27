@@ -1,3 +1,8 @@
+cd(@__DIR__)
+using Pkg
+Pkg.activate("../.")
+Pkg.instantiate()
+
 using DNC
 using Flux
 using Zygote
@@ -14,7 +19,7 @@ X = nbits+2
 Y = nbits+1
 N, W, R = 16, 16, 2
 
-niter = 10000
+niter = 10
 batchsize = 16
 seqs = [RepeatCopy(;
             nbits=nbits,
@@ -35,6 +40,8 @@ using Flux.Optimise: update!, runall, StopException
 using Zygote: Params, gradient
 using Dates
 
+savepath = "../data/$(today())-dnc-$niter-$batchsize.bson"
+
 function mytrain!(loss, ps, data, opt; cb=()->())
     ps = Params(ps)
     cb = runall(cb)
@@ -53,7 +60,8 @@ function mytrain!(loss, ps, data, opt; cb=()->())
             end
         end
     end
-    @save "$(today())-dnc-$niter-$batchsize.bson" model
+    @info "Saving model to $savepath"
+    @save savepath model
 end
 
 opt = RMSProp(1e-3)
