@@ -1,0 +1,16 @@
+# Extend official Julia image
+FROM julia:1.4.0
+
+MAINTAINER Sondre Rodahl <son.rodahl@gmail.com>
+
+#Set container working directory
+WORKDIR ~/.julia/dev/DNC
+#Copy all files to the current container location
+COPY . .
+
+#Train the model during build - make inference in containers
+RUN julia experiments/trainrepeat.jl
+
+# Default command on container start is training script
+CMD ['julia']
+
