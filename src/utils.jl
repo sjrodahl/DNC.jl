@@ -1,8 +1,9 @@
 import Flux: softmax
 using LinearAlgebra
 
+mynorm(itr) = sqrt(sum(map(x->x^2, itr)))
 
-cosinesim(u, v) = dot(u, v)/(norm(u)*norm(v))
+cosinesim(u, v) = dot(u, v)/(mynorm(u)*mynorm(v))
 
 weightedsoftmax(xs, weight) = softmax(xs.*weight)
 

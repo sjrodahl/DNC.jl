@@ -55,11 +55,14 @@ end
         zip(Xs, Ys)
     end
 
-    data = generatedata(X, Y, 100)
+    data = generatedata(X, Y)
+    @test eltype(dnc.cell.memoryaccess.M) == Float32
+    @test eltype(dnc(first(data)[1])) == Float32
     loss(x, y) = Flux.mse(dnc(x), y)
     opt = ADAM(0.01)
     evalcb() = @show loss(first(data)[1], first(data)[2])
     Flux.train!(loss, params(dnc), data, opt, cb=Flux.throttle(evalcb, 10))
+    @test eltype(dnc(first(data)[1])) == Float32
     @test eltype(dnc.cell.memoryaccess.M) == Float32
     @test loss(first(data)[1], first(data)[2]) < 1.0
 end
