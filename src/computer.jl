@@ -18,7 +18,7 @@ end
 DNCCell(controller, in::Int, out::Int, N::Int, W::Int, R::Int; init=Flux.glorot_uniform) =
     DNCCell(
         controller,
-        zeros(R*W),
+        zeros(Float32, R*W),
         init(out, R*W),
         R,
         W,
