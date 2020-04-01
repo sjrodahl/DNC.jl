@@ -10,11 +10,11 @@ mutable struct State
 end
 
 State(N::Int, R::Int) = State(
-    zeros(N, N),
-    zeros(N),
-    zeros(N),
-    zeros(N),
-    zeros(N, R)
+    zeros(Float32, N, N),
+    zeros(Float32, N),
+    zeros(Float32, N),
+    zeros(Float32, N),
+    zeros(Float32, N, R)
     )
 
 mutable struct MemoryAccess
@@ -89,4 +89,4 @@ end
 @adjoint update_state_after_read!(state, wr) =
     update_state_after_read!(state, wr), _ -> nothing
 
-eraseandadd(M, ww, e, a) = M .* (ones(size(M)) - ww * e') + ww * a'
+eraseandadd(M, ww, e, a) = M .* (ones(Float32, size(M)) - ww * e') + ww * a'
