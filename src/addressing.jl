@@ -36,7 +36,7 @@ function memoryretention end
 #  Multiple read heads
 function memoryretention(readweights, freegate)
     N, R = size(readweights)
-    rs = [ones(N) .- freegate[i].*readweights[:,i] for i in 1:R]
+    rs = [ones(Float32, N) .- freegate[i].*readweights[:,i] for i in 1:R]
     foldl(rs) do x, y
         x.*y
     end
@@ -55,7 +55,7 @@ function usage(u_prev, writeweights, readweights, freegate)
     usage(u_prev, writeweights, 𝜓)
 end
 
-const _EPSILON = 1e-6
+const _EPSILON = 1f-6
 
 
 """
