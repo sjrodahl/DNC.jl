@@ -30,11 +30,17 @@ end
 end
 
 @testset "Cosine similarity" begin
+    a, b = ([1.f0, 1.f0], [0.f0, 0.5f0])
     @test DNC.cosinesim([1, 2], [1, 2]) ≈ 1
     @test DNC.cosinesim([1, 1], [0,1]) ≈ cos(π/4)
     @test DNC.cosinesim([-1, 1], [1, 0]) ≈ cos(3π/4)
     @test DNC.cosinesim([1, 0, 0], [0, 1, 0]) == 0
-    @test eltype(DNC.cosinesim([1.f0, 1.f0], [0.f0, 0.5f0])) == Float32
+    @test eltype(DNC.cosinesim(a, b)) == Float32
+    g = gradient(DNC.cosinesim, a, b)
+    @test length(g) == 2
+    for grad in g
+        @test eltype(grad) == Float32
+    end
 end
 
 @testset "Calc output" begin
@@ -46,7 +52,13 @@ end
     res = DNC.calcoutput(v, readvectors, Wr)
     @test size(res) == (outsize,)
     @test eltype(res) == Float32
-
+    g = gradient(v, readvectors, Wr) do v, readvectors, Wr
+        sum(DNC.calcoutput(v, readvectors, Wr))
+    end
+    @test length(g) == 3
+    for grad in g
+        @test eltype(grad) == Float32
+    end
 end
 
 @testset "Split ξ $(R) read head" for R in 1:2

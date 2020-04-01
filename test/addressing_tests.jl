@@ -17,8 +17,8 @@ in_Sn(vec) = sum(vec) == 1.0
 in_Δn(vec) = sum(vec) >= 0.0 && sum(vec) <= 1.0
 
 @testset "Content-based addressing" begin
-    M = Float32.([0.1 0.5 1.5;
-                  -1.2 0.8 0.0])
+    M =Float32[0.1 0.5 1.5;
+                  -1.2 0.8 0.0]
     key = Matrix(M')
     key[1, 1] = 0 # Avoid exact match
     β = [100.0f0, 100.0f0]
@@ -30,8 +30,11 @@ in_Δn(vec) = sum(vec) >= 0.0 && sum(vec) <= 1.0
         sum(sum(contentaddress(k, M, β)))
     end
     @test length(g) == 3
+    for grad in g
+        @test eltype(grad) == Float32
+    end
     # Should return equal values for parallel memory rows
-    M = Float32.([1 0; 2 0])
+    M = Float32[1 0; 2 0]
     key = Float32.(Matrix([1 1]'))
     β = 1.f0
     wc = contentaddress(key, M, β)
@@ -60,6 +63,9 @@ end
         end
         @test length(g) == 2
         # Two read heads
+        for grad in g
+            @test eltype(grad) == Float32
+        end
         memret = DNC.memoryretention(usagecase2.wr, usagecase2.f)
         @test isapprox(memret, [0.4, 0.7, 0.9], atol=1e-5)
         @test eltype(memret) == Float32
@@ -67,6 +73,9 @@ end
             sum(DNC.memoryretention(wr, f))
         end
         @test length(g) == 2
+        for grad in g
+            @test eltype(grad) == Float32
+        end
     end
 
     @testset "Usage u⃗" begin
@@ -79,6 +88,9 @@ end
             sum(DNC.usage(u_prev, ww, 𝜓))
         end
         @test length(g) == 2
+        for grad in g
+            @test eltype(grad) == Float32
+        end
         # Two read heads
         wr, f, ww = usagecase2
         𝜓 = DNC.memoryretention(wr, f)
@@ -89,6 +101,9 @@ end
             sum(DNC.usage(u_prev, ww, 𝜓))
         end
         @test length(g) == 2
+        for grad in g
+            @test eltype(grad) == Float32
+        end
     end
 
     @testset "Allocation a⃗" begin
@@ -106,6 +121,9 @@ end
             sum(DNC.allocationweighting(f, wr, ww, u_prev))
         end
         @test length(g) == 3
+        for grad in g
+            @test eltype(grad) == Float32
+        end
         # Allocation is zero if all usages are 1
         allused = ones(5)
         @test isapprox(DNC.allocationweighting(allused), (zeros(5)); atol=DNC._EPSILON*10)
