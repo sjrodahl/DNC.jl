@@ -100,7 +100,7 @@ end
 end
 
 @testset "Erase and add" begin
-    new = DNC.eraseandadd(M, [0.0, 0, 1], ones(3), [2.0, 2.0, 2.0])
+    new = DNC.eraseandadd(M, [0.0f0, 0, 1], ones(Float32, 3), [2.0f0, 2.0f0, 2.0f0])
     @test eltype(new) == Float32
     @test new[3,:] == [2.0, 2.0, 2.0]
     ww2 = round.(writeweights(M, allocationwrite, state.ww, state.wr, state.u); digits=3)
@@ -114,7 +114,7 @@ rng = MersenneTwister(234)
 @testset "MemoryAccess" begin
     insize, N, W, R = 20, 5, 10, 2
     ma = DNC.MemoryAccess(insize, N, W, R)
-    inputs = rand(rng, insize)
+    inputs = rand(rng, Float32, insize)
     @testset "Dimensions" begin
         @test size(ma.M) == (N, W)
         @test size(ma.state.wr) == (N, R)
