@@ -1,3 +1,4 @@
+using Dates
 using Flux
 using Flux.Data: DataLoader
 # Represent a single sequence with observation, target and mask
@@ -147,4 +148,48 @@ function loss(model, batcheddata::Array{RepeatCopy, 1}; printoutput=false)
     batchloss
 end
 
+using BSON: @save
+using Flux: @progress, throttle
+using Flux.Optimise: update!, runall, StopException
+using Zygote: Params, gradient
+using Dates
 
+function mytrain!(loss, ps, data, opt; cb=()->())
+    ps = Params(ps)
+    cb = runall(cb)
+    for d in data
+        try
+            gs = gradient(ps) do
+                loss(d)
+            end
+            update!(opt, ps, gs)
+            cb()
+        catch ex
+            if ex isa StopException
+                break
+            else
+                rethrow(ex)
+            end
+        end
+    end
+    @save "$(today())-repeatcopy-$niter-$batchsize.bson" model
+end
+
+# Allow evalcb to report based on iteration number
+mutable struct ThrottleIterations
+    fn
+    interval
+    cnt
+end
+
+ThrottleIterations(fn, interval) = ThrottleIterations(fn, interval, 0)
+
+function (fncint::ThrottleIterations)(args...;kwargs...)
+    fncint.cnt += 1
+    if fncint.cnt % fncint.interval == 0
+        println(now(), ", iteration number ", fncint.cnt)
+        return fncint.fn(args..., kwargs...)
+    else
+        return nothing
+    end
+end
