@@ -1,7 +1,7 @@
 import Flux: softmax
 using LinearAlgebra
 
-mynorm(itr) = sqrt(sum(map(x->x^2, itr)))
+mynorm(itr) = sqrt(sum(x->x^2, itr))
 
 cosinesim(u, v) = dot(u, v)/(mynorm(u)*mynorm(v))
 
