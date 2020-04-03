@@ -77,11 +77,13 @@ state = State(
         @test round.(r3; digits=5) == Matrix([0.0 0 1]')
     end
     @testset "Writeweights" begin
-        ww, wr, u = state.ww, state.wr, state.u
-        ww1 = writeweights(M, contentwrite, ww, wr, u)
+        ww, wr, prev_u = state.ww, state.wr, state.u
+        u = DNC.usage(prev_u, ww, wr, contentwrite.f)
+        ww1 = writeweights(M, contentwrite, u)
         @test eltype(ww1) == Float32
         @test round.(ww1; digits=3) == Matrix([1.0 0.0 0.0]')
-        ww2 = writeweights(M, allocationwrite, ww, wr, u)
+        u = DNC.usage(prev_u, ww, wr, allocationwrite.f)
+        ww2 = writeweights(M, allocationwrite, u)
         @test eltype(ww2) == Float32
         @test round.(ww2; digits=3) == Matrix([0.0 0.0 1.0]')
     end
@@ -100,10 +102,11 @@ end
 end
 
 @testset "Erase and add" begin
+    u = DNC.usage(state.u, state.ww, state.wr, allocationwrite.f)
     new = DNC.eraseandadd(M, [0.0f0, 0, 1], ones(Float32, 3), [2.0f0, 2.0f0, 2.0f0])
     @test eltype(new) == Float32
     @test new[3,:] == [2.0, 2.0, 2.0]
-    ww2 = round.(writeweights(M, allocationwrite, state.ww, state.wr, state.u); digits=3)
+    ww2 = round.(writeweights(M, allocationwrite, u); digits=3)
     new2 = DNC.eraseandadd(M, ww2, allocationwrite[:e], allocationwrite[:v]) 
     @test new2[3,:] == allocationwrite[:v]
 end
