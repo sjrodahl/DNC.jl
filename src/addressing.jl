@@ -42,22 +42,20 @@ function memoryretention(readweights, freegate)
     end
 end
 
+_usage(u_prev, ww_prev, 𝜓) = (u_prev + ww_prev - (u_prev.*ww_prev)) .* 𝜓
 """
-    usage(u_prev, writeweights, 𝜓)
+    usage(u_prev, ww_prev, wr_prev, freegate)
 
 Calculate the usage vector of the memory rows.
 A row is considered used (u[i]=1) if they have recently been written to and haven't been retained by the free gates (𝜓[i] =1)
 """
-usage(u_prev, writeweights, 𝜓) = (u_prev + writeweights - (u_prev.*writeweights)) .* 𝜓
-
-function usage(u_prev, writeweights, readweights, freegate)
-    𝜓 = memoryretention(readweights, freegate)
-    usage(u_prev, writeweights, 𝜓)
+function usage(u_prev, ww_prev, wr_prev, freegate)
+    𝜓 = memoryretention(wr_prev, freegate)
+    _usage(u_prev, ww_prev, 𝜓)
 end
 
+
 const _EPSILON = 1f-6
-
-
 """
     cumprodexclusive(arr::AbstractArray) 
 Exclusive cumulative product
@@ -98,8 +96,7 @@ function allocationweighting(u::AbstractArray; eps::AbstractFloat=_EPSILON)
  end
 
 function allocationweighting(freegate, prev_wr, prev_ww, prev_usage; eps::AbstractFloat=_EPSILON)
-    𝜓 = memoryretention(prev_wr, freegate)
-    u = usage(prev_usage, prev_ww, 𝜓)
+    u = usage(prev_usage, prev_ww, prev_wr, freegate)
     allocationweighting(u)
 end
 

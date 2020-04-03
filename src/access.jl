@@ -26,15 +26,13 @@ MemoryAccess(inputsize, N, W, R; init=Flux.glorot_uniform) =
     MemoryAccess(init(N, W), State(N, R), inputmappings(inputsize, R, W))
 
 function (ma::MemoryAccess)(inputs)
-    R = size(ma.state.wr)[2]
-    W = size(ma.M)[2]
+    p_prev, u_prev, ww_prev, wr_prev = ma.state.p, ma.state.u, ma.state.ww, ma.state.wr
     inputs = split_ξ(inputs, ma.inputmaps)
-    p, u, ww, wr = ma.state.p, ma.state.u, ma.state.ww, ma.state.wr
-    u = usage(u, ww, wr, inputs.f)
-    ww= writeweights(ma.M, inputs, ww, wr, u)
+    u = usage(u_prev, ww_prev, wr_prev, inputs.f)
+    ww = writeweights(ma.M, inputs, u)
     ma.M = eraseandadd(ma.M, ww, inputs.e, inputs.v)
     update_state_after_write!(ma.state, ww, u)
-    wr = readweights(ma.M, inputs, ma.state.L, wr)
+    wr = readweights(ma.M, inputs, ma.state.L, wr_prev)
     update_state_after_read!(ma.state, wr)
     readvectors = ma.M' * wr
     readvectors
@@ -43,6 +41,7 @@ end
 
 """
     readweights(inputs, L::Matrix, prev_wr)
+    readweights(M, inputs, L, prev_wr)
 
 Fuzzy read the memory M. 
 """
@@ -55,20 +54,15 @@ function readweights(M, inputs, L, prev_wr)
 end
 
 """
-    writeweights(M, inputs, free::AbstractArray, prev_ww::AbstractArray, prev_wr::AbstractArray, prev_usage::AbstractArray)
+    writeweights(M, inputs, usage)
 
 Fuzzy write to memory. Location is based on either content similarity or row usage.
 
 """
-function writeweights(M, inputs,
-        prev_ww,
-        prev_wr,
-        prev_usage)
-    k, β, ga, gw, e, v, free = inputs.kw, inputs.βw, inputs.ga[1], inputs.gw[1], inputs.e, inputs.v, inputs.f
+function writeweights(M, inputs, usage)
+    k, β, ga, gw = inputs.kw, inputs.βw, inputs.ga[1], inputs.gw[1]
     cw = contentaddress(k, M, β)
-    𝜓 = memoryretention(prev_wr, free)
-    u = usage(prev_usage, prev_ww, 𝜓)
-    a = allocationweighting(u)
+    a = allocationweighting(usage)
     ww = writeweight(cw, a, gw, ga)
 end
 

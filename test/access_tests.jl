@@ -3,8 +3,7 @@ using Zygote
 N = 3
 W = 3
 
-M = Float32
-    [1 2 3;
+M = Float32[1 2 3;
     -1 -2  -3;
     1 -2 3]
 
