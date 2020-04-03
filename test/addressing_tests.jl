@@ -81,24 +81,31 @@ end
     @testset "Usage u⃗" begin
         wr, f, ww = usagecase1
         𝜓 = DNC.memoryretention(wr, f)
-        u = DNC.usage(u_prev, ww, 𝜓)
+        u = DNC._usage(u_prev, ww, 𝜓)
         @test u == [1//2, 3//8, 3//16]
         @test eltype(u) == Float32
         g = gradient(ww, 𝜓) do ww, 𝜓
-            sum(DNC.usage(u_prev, ww, 𝜓))
+            sum(DNC._usage(u_prev, ww, 𝜓))
         end
         @test length(g) == 2
+        for grad in g
+            @test eltype(grad) == Float32
+        end
+        g = gradient(ww, wr, f) do ww, wr, f
+            sum(DNC.usage(u_prev, ww, wr, f))
+        end
+        @test length(g) == 3
         for grad in g
             @test eltype(grad) == Float32
         end
         # Two read heads
         wr, f, ww = usagecase2
         𝜓 = DNC.memoryretention(wr, f)
-        u = DNC.usage(u_prev, ww, 𝜓)
+        u = DNC._usage(u_prev, ww, 𝜓)
         @test isapprox(u, [0.4, 0.35, 0.225], atol=1e-5)
         @test eltype(u) == Float32
         g = gradient(ww, 𝜓) do ww, 𝜓
-            sum(DNC.usage(u_prev, ww, 𝜓))
+            sum(DNC._usage(u_prev, ww, 𝜓))
         end
         @test length(g) == 2
         for grad in g
@@ -109,7 +116,7 @@ end
     @testset "Allocation a⃗" begin
         # Using approximation due to DNC's use of _EPSILON to avoid num. instability
         wr, f, ww = usagecase2
-        u = DNC.usage(u_prev,ww, DNC.memoryretention(wr, f))
+        u = DNC._usage(u_prev,ww, DNC.memoryretention(wr, f))
         alloc = DNC.allocationweighting(u)
         @test eltype(alloc) == Float32
         @test isapprox(alloc, [0.04725, 0.14625, 0.775]; atol=DNC._EPSILON*10)
