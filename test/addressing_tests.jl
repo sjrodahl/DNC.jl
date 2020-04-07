@@ -43,7 +43,7 @@ end
 
 
 @testset "Memory allocation" begin
-    usagecase1 = (wr = Float32.(Matrix([0.5 0.25 0.25]')), f=1.f0, ww = [0.25f0, 0.5f0, 0.25f0])
+    usagecase1 = (wr = Float32.(Matrix([0.5 0.25 0.25]')), f=[1.f0], ww = [0.25f0, 0.5f0, 0.25f0])
     usagecase2 = (wr =Float32.([0.6 0.0;
                         0.3 0.5;
                         0.1 0.5]),
@@ -120,14 +120,10 @@ end
         alloc = DNC.allocationweighting(u)
         @test eltype(alloc) == Float32
         @test isapprox(alloc, [0.04725, 0.14625, 0.775]; atol=DNC._EPSILON*10)
-        @test DNC.allocationweighting(f, wr, ww, u_prev) == alloc
-        @test eltype(DNC.allocationweighting(f, wr, ww, u_prev)) == Float32
-        @test DNC.allocationweighting(f, state2) == alloc
-        @test eltype(DNC.allocationweighting(f, state2)) == Float32
-        g = gradient(f, wr, ww) do f, wr, ww
-            sum(DNC.allocationweighting(f, wr, ww, u_prev))
+        g = gradient(u) do u
+            sum(DNC.allocationweighting(u))
         end
-        @test length(g) == 3
+        @test length(g) == 1
         for grad in g
             @test eltype(grad) == Float32
         end

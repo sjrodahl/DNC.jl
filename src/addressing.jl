@@ -27,19 +27,10 @@ end
     
 Determine how much each memory location will not be freed by the free gates.
 """
-function memoryretention end
-# Single read head
-#function memoryretention(readweights::AbstractArray{<:Number, 1}, freegate)
-#    return ones(length(readweights)) .- freegate.*readweights
-#end
-
-#  Multiple read heads
 function memoryretention(readweights, freegate)
-    N, R = size(readweights)
-    rs = [ones(Float32, N) .- freegate[i].*readweights[:,i] for i in 1:R]
-    foldl(rs) do x, y
-        x.*y
-    end
+    rs = one(eltype(readweights)) .- readweights.*reshape(freegate, 1, size(freegate)...)
+    rs = prod(rs; dims=2)
+    dropdims(rs; dims=2)
 end
 
 _usage(u_prev, ww_prev, 𝜓) = (u_prev + ww_prev - (u_prev.*ww_prev)) .* 𝜓
@@ -56,34 +47,13 @@ end
 
 
 const _EPSILON = 1f-6
-"""
-    cumprodexclusive(arr::AbstractArray) 
-Exclusive cumulative product
-
-# Examples
-```jldoctest
-julia> DNC.cumprodexclusive([1, 2, 3, 4])
-4-element Array{Float64,1}:
-1.0
-1.0
-2.0
-6.0
-```
-"""
-cumprodexclusive(arr::AbstractArray) = cumprod(arr) ./ arr
-
 
 """
     allocationweighting(usage::AbstractArray; eps::AbstractFloat=1e-6)
-    allocationweighting(freegate, prev_wr, prev_ww, prev_usage; eps::AbstractFloat=1e-6)
-    allocationweighting(freegate, state::State; eps::AbstractFloat=1e-6)
 
     Provide new locations for writing. If all locations are used, no writes can be made.
 
 """
-function allocationweighting end
-
-
 function allocationweighting(u::AbstractArray; eps::AbstractFloat=_EPSILON)
     u = eps .+ (1 - eps) .* u # Ensure values are large enough for numerical stability in cumprodexclusive
     N = length(u)
@@ -94,16 +64,6 @@ function allocationweighting(u::AbstractArray; eps::AbstractFloat=_EPSILON)
     a = sortedalloc[ϕ]
     a
  end
-
-function allocationweighting(freegate, prev_wr, prev_ww, prev_usage; eps::AbstractFloat=_EPSILON)
-    u = usage(prev_usage, prev_ww, prev_wr, freegate)
-    allocationweighting(u)
-end
-
-function allocationweighting(freegate, state::State; eps::AbstractFloat=_EPSILON)
-    wr, ww, u = state.wr, state.ww, state.u
-    allocationweighting(freegate, wr, ww, u)
-end
 
 using Zygote: @adjoint
 # The sorting of allocation weighting introduce discontinuities
