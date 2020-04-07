@@ -16,6 +16,40 @@ end
 in_Sn(vec) = sum(vec) == 1.0
 in_Δn(vec) = sum(vec) >= 0.0 && sum(vec) <= 1.0
 
+N, W, R, B = 4, 8, 2, 4
+key = rand(Float32, W, R, B)
+mem = rand(Float32, N, W, B)
+β = DNC.oneplus.(rand(Float32, R, B))
+inputs = (wr=rand(Float32, N, R, B),
+          f=σ.(rand(Float32, R, B)),
+          ww=rand(Float32, N, 1, B))
+state = State(
+    zeros(Float32, N, N, B),
+    zeros(Float32, N, B),
+    zeros(Float32, N, B),
+    zeros(Float32, N, B),
+    zeros(Float32, N, R, B))
+
+@testset "Batch-training" begin
+    @testset "Contentaddress" begin
+        contaddr = DNC.contentaddress(key, mem, β)
+        @test size(contaddr) == (N, R, B)
+        @test eltype(contaddr) == Float32
+        g = gradient(key, mem, β) do k, m, b
+            sum(DNC.contentaddress(k, m, b))
+        end
+        @test length(g) == 3
+    end
+    @testset "Memoryretention" begin
+        memret = DNC.memoryretention(inputs.wr, inputs.f)
+        @test eltype(memret) == Float32
+    end
+    u = DNC.usage(state.u, state.ww, state.wr, inputs.f)
+    @test eltype(u) == Float32
+    a = DNC.allocationweighting(u)
+    @test eltype(a) == Float32
+end
+
 @testset "Content-based addressing" begin
     M =Float32[0.1 0.5 1.5;
                   -1.2 0.8 0.0]
@@ -43,7 +77,7 @@ end
 
 
 @testset "Memory allocation" begin
-    usagecase1 = (wr = Float32.(Matrix([0.5 0.25 0.25]')), f=1.f0, ww = [0.25f0, 0.5f0, 0.25f0])
+    usagecase1 = (wr = Float32.(Matrix([0.5 0.25 0.25]')), f=[1.f0], ww = [0.25f0, 0.5f0, 0.25f0])
     usagecase2 = (wr =Float32.([0.6 0.0;
                         0.3 0.5;
                         0.1 0.5]),

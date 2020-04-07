@@ -4,7 +4,7 @@ using Zygote: Buffer
 
 
 """
-    contentaddress(key, M, β[, K])
+contentaddress(key, M, β[, K])
 
 Compute the similarity K (default cosine similarity) between all rows of memory M and the key.
 β acts as sharpener: high values concentrate weights, low values (<1) blurs them.
@@ -41,7 +41,27 @@ function _pairwise!(r::Zygote.Buffer,
     r
 end
 
-function contentaddress(key::AbstractArray{T, 2}, mem::AbstractArray{T, 2}, β::AbstractArray{S, 1}, K = weightedcosinesim) where {T, S}
+function _pairwise!(r::Zygote.Buffer,
+                    metric::Function,
+                    col::AbstractArray{T, 3},
+                    row::AbstractArray{T, 3}, β::AbstractArray{T, 2}) where {T, S}
+    nrow = size(row, 1)
+    ncol = size(col, 2)
+    batchsize = size(col, 3)
+    size(r) == (nrow, ncol, batchsize) || throw(DimensionMismatch("Incorrect size of r. Expected $((nrow, ncol, batchsize)), got $(size(r))"))
+    @inbounds for k = 1:batchsize
+        @inbounds for j = 1:ncol
+            colj = view(col, :, j, k)
+            for i = 1:nrow
+                rowi = view(row, i, :, k)
+                r[i, j, k] = metric(rowi, colj, β[j, k])
+            end
+        end
+    end
+    r
+end
+
+function contentaddress(key::AbstractArray{T, 2}, mem::AbstractArray{T, 2}, β::AbstractArray{S, 1}, K=weightedcosinesim) where {T, S}
     wordsize, numreadheads = size(key)
     numloc, _ = size(mem)
     out = Zygote.Buffer(key, eltype(key), (numloc, numreadheads))
@@ -51,30 +71,32 @@ function contentaddress(key::AbstractArray{T, 2}, mem::AbstractArray{T, 2}, β::
     mysoftmax!(b, out)
     copy(b)
 end
-"""
-    memoryretention(readweights::AbstractArray{<:Number, 1, freegate} # Single read head
-    memoryretention(readweights::Array{<:AbstractArray, 1}, freegate) # Multiple read heads
-    
-Determine how much each memory location will not be freed by the free gates.
-"""
-function memoryretention end
-# Single read head
-#function memoryretention(readweights::AbstractArray{<:Number, 1}, freegate)
-#    return ones(length(readweights)) .- freegate.*readweights
-#end
 
-#  Multiple read heads
-function memoryretention(readweights, freegate)
-    N, R = size(readweights)
-    rs = [ones(Float32, N) .- freegate[i].*readweights[:,i] for i in 1:R]
-    foldl(rs) do x, y
-        x.*y
-    end
+function contentaddress(key::AbstractArray{T, 3}, mem::AbstractArray{T, 3}, β::AbstractArray{S, 2}, K=weightedcosinesim) where {T, S}
+    wordsize, numreadheads, batchsize = size(key)
+    numloc, _, _ = size(mem)
+    out = Zygote.Buffer(key, eltype(key), (numloc, numreadheads, batchsize))
+    _pairwise!(out, weightedcosinesim, key, mem, β)
+    out = copy(out)
+    return out ./ sum(out; dims=1)
+end
+
+"""
+
+    memoryretention(wr, f)
+Determine how much each memory location will not be freed by the free gates.
+Batchable.
+Returns a tensor of size (N x Batchsize)
+"""
+function memoryretention(wr, f)
+    rs = one(eltype(wr)) .- wr.*reshape(f, 1, size(f)...)
+    rs = prod(rs; dims=2)
+    dropdims(rs; dims=2)
 end
 
 _usage(u_prev, ww_prev, 𝜓) = (u_prev + ww_prev - (u_prev.*ww_prev)) .* 𝜓
 """
-    usage(u_prev, ww_prev, wr_prev, freegate)
+usage(u_prev, ww_prev, wr_prev, freegate)
 
 Calculate the usage vector of the memory rows.
 A row is considered used (u[i]=1) if they have recently been written to and haven't been retained by the free gates (𝜓[i] =1)
@@ -87,7 +109,7 @@ end
 
 const _EPSILON = 1f-6
 """
-    cumprodexclusive(arr::AbstractArray) 
+cumprodexclusive(arr::AbstractArray) 
 Exclusive cumulative product
 
 # Examples
@@ -100,15 +122,15 @@ julia> DNC.cumprodexclusive([1, 2, 3, 4])
 6.0
 ```
 """
-cumprodexclusive(arr::AbstractArray) = cumprod(arr) ./ arr
+cumprodexclusive(arr::AbstractArray; dims=1) = cumprod(arr; dims=dims) ./ arr
 
 
 """
-    allocationweighting(usage::AbstractArray; eps::AbstractFloat=1e-6)
-    allocationweighting(freegate, prev_wr, prev_ww, prev_usage; eps::AbstractFloat=1e-6)
-    allocationweighting(freegate, state::State; eps::AbstractFloat=1e-6)
+allocationweighting(usage::AbstractArray; eps::AbstractFloat=1e-6)
+allocationweighting(freegate, prev_wr, prev_ww, prev_usage; eps::AbstractFloat=1e-6)
+allocationweighting(freegate, state::State; eps::AbstractFloat=1e-6)
 
-    Provide new locations for writing. If all locations are used, no writes can be made.
+Provide new locations for writing. If all locations are used, no writes can be made.
 
 """
 function allocationweighting end
@@ -123,26 +145,32 @@ function allocationweighting(u::AbstractArray; eps::AbstractFloat=_EPSILON)
     sortedalloc = (1 .- sortedusage) .* prodsortedusage
     a = sortedalloc[ϕ]
     a
- end
-
-function allocationweighting(freegate, prev_wr, prev_ww, prev_usage; eps::AbstractFloat=_EPSILON)
-    u = usage(prev_usage, prev_ww, prev_wr, freegate)
-    allocationweighting(u)
 end
 
-function allocationweighting(freegate, state::State; eps::AbstractFloat=_EPSILON)
-    wr, ww, u = state.wr, state.ww, state.u
-    allocationweighting(freegate, wr, ww, u)
+function  allocationweighting(u::AbstractMatrix; eps::AbstractFloat=_EPSILON)
+    u = eps .+ (1-eps) .* u
+    ϕ = [sortperm(u[:, i]) for i in 1:size(u, 2)]
+    ϕ = reshape(vcat(ϕ...), size(u))
+    for i in CartesianIndices(ϕ)
+        ϕ[i] += size(ϕ, 1)*(i[2]-1)
+    end
+    sortedusage = u[ϕ]
+    prodsortedusage = cumprodexclusive(sortedusage;dims=1)
+    sortedalloc = (1 .- sortedusage) .* prodsortedusage
+    a = sortedalloc[ϕ]
+    a
 end
 
 using Zygote: @adjoint
 # The sorting of allocation weighting introduce discontinuities
 # in the backward pass, so we set the pullback to 1
-@adjoint allocationweighting(u::AbstractArray; eps=_EPSILON) =
-    allocationweighting(u; eps=eps), Δ -> (Δ, Δ)
+#@adjoint allocationweighting(u::AbstractArray; eps=_EPSILON) =
+#allocationweighting(u; eps=eps), Δ -> (Δ, )
+@adjoint allocationweighting(u::AbstractMatrix; eps=_EPSILON) =
+allocationweighting(u; eps=eps), Δ -> (Δ, )
 
 """
-    writeweight(contentweighting, allocationweighting, writegate, allocationgate)
+writeweight(contentweighting, allocationweighting, writegate, allocationgate)
 
 Calculate the write weightings over the matrix rows
 """
@@ -168,7 +196,7 @@ forwardweight(L, wr) = L*wr
 backwardweight(L, wr) = L'*wr
 
 """
-    readweight(backw, content, forw, readmode)
+readweight(backw, content, forw, readmode)
 
 Interpolate the backward weighting, content weighting and forward weighting.
 readmode is a vector of size 3 summing to 1.
