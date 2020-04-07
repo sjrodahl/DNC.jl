@@ -1,5 +1,6 @@
 using Base: cumprod
 using Flux: param
+using Zygote: Buffer
 
 
 """
@@ -8,19 +9,48 @@ using Flux: param
 Compute the similarity K (default cosine similarity) between all rows of memory M and the key.
 β acts as sharpener: high values concentrate weights, low values (<1) blurs them.
 """
-function contentaddress(key, M, β, K=cosinesim)
+#function contentaddress(key, M, β, K=cosinesim)
+#    wordsize, numreadheads = size(key)
+#    numwords, _ = size(M)
+#    all = [_contentaddress(key[:,i], M, β[i]) for i in 1:numreadheads]
+#    return reshape(vcat(all...),numwords, numreadheads)
+#end
+#
+#function _contentaddress(key, M, β, K=cosinesim)
+#    r, c = size(M)
+#    xs = [K(key, M[row,:]) for row in 1:r]
+#    weightedsoftmax(xs, β)
+#end
+
+
+
+function _pairwise!(r::Zygote.Buffer,
+                    metric::Function,
+                    col::AbstractArray{T, 2},
+                    row::AbstractArray{T, 2}, β::AbstractArray{T, 1}) where {T, S}
+    nrow = size(row, 1)
+    ncol = size(col, 2)
+    size(r) == (nrow, ncol) || throw(DimensionMismatch("Incorrect size of r. Expected $((nrow, ncol)), got $(size(r))"))
+    @inbounds for j = 1:ncol
+        colj = view(col, :, j)
+        for i = 1:nrow
+            rowi = view(row, i, :)
+            r[i, j] = metric(rowi, colj, β[j])
+        end
+    end
+    r
+end
+
+function contentaddress(key::AbstractArray{T, 2}, mem::AbstractArray{T, 2}, β::AbstractArray{S, 1}, K = weightedcosinesim) where {T, S}
     wordsize, numreadheads = size(key)
-    numwords, _ = size(M)
-    all = [_contentaddress(key[:,i], M, β[i]) for i in 1:numreadheads]
-    return reshape(vcat(all...),numwords, numreadheads)
+    numloc, _ = size(mem)
+    out = Zygote.Buffer(key, eltype(key), (numloc, numreadheads))
+    _pairwise!(out, K, key, mem, β)
+    out = copy(out)
+    b = Zygote.Buffer(out)
+    mysoftmax!(b, out)
+    copy(b)
 end
-
-function _contentaddress(key, M, β, K=cosinesim)
-    r, c = size(M)
-    xs = [K(key, M[row,:]) for row in 1:r]
-    weightedsoftmax(xs, β)
-end
-
 """
     memoryretention(readweights::AbstractArray{<:Number, 1, freegate} # Single read head
     memoryretention(readweights::Array{<:AbstractArray, 1}, freegate) # Multiple read heads

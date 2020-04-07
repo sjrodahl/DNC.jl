@@ -5,6 +5,39 @@ mynorm(itr) = sqrt(sum(x->x^2, itr))
 
 cosinesim(u, v) = dot(u, v)/(mynorm(u)*mynorm(v))
 
+weightedcosinesim(u, v, β) = cosinesim(u, v) * β
+
+import Base.lastindex
+
+Base.lastindex(b::Zygote.Buffer) = Base.lastindex(b.data)
+Base.lastindex(b::Zygote.Buffer, d) = Base.lastindex(b.data, d)
+
+function mysoftmax!(out::Zygote.Buffer{T}, xs::AbstractVecOrMat{T}) where {T}
+    @inbounds for j = 1:size(xs, 2)
+        # First, store column-wise maximum in the last element of `out`
+        out[end, j] = xs[end, j]
+        @inbounds for i = 1:(size(xs, 1) - 1)
+            out[end, j] = max(out[end, j], xs[i, j])
+        end
+
+        # Subtract the column-wise maximums to normalize, take exp()
+        # out .= exp(xs .- out[end, :])
+        @inbounds for i = 1:size(out, 1)
+            out[i, j] = exp(xs[i, j] - out[end, j])
+        end
+
+        # Normalize by sum of the entire thing
+        # out ./= sum(out, 1)
+        s = T(0)
+        @inbounds for i = 1:size(out, 1)
+            s += out[i, j]
+        end
+        @inbounds for i = 1:size(out, 1)
+            out[i, j] /= s
+        end
+    end
+    return out
+end
 weightedsoftmax(xs, weight) = softmax(xs.*weight)
 
 oneplus(x) = 1 + log(1+exp(x))

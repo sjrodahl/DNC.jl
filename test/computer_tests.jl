@@ -1,4 +1,5 @@
 using Flux
+using Flux: params
 
 using Random
 rng = MersenneTwister(2345)

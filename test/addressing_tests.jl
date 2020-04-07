@@ -36,7 +36,7 @@ in_Δn(vec) = sum(vec) >= 0.0 && sum(vec) <= 1.0
     # Should return equal values for parallel memory rows
     M = Float32[1 0; 2 0]
     key = Float32.(Matrix([1 1]'))
-    β = 1.f0
+    β = [1.f0]
     wc = contentaddress(key, M, β)
     @test wc[1] == wc[2]
 end
