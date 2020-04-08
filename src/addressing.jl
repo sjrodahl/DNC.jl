@@ -91,7 +91,7 @@ Returns a tensor of size (N x Batchsize)
 function memoryretention(wr, f)
     rs = one(eltype(wr)) .- wr.*reshape(f, 1, size(f)...)
     rs = prod(rs; dims=2)
-    dropdims(rs; dims=2)
+    return dropdims(rs; dims=2)
 end
 
 _usage(u_prev, ww_prev, 𝜓) = (u_prev + ww_prev - (u_prev.*ww_prev)) .* 𝜓
@@ -164,8 +164,8 @@ end
 using Zygote: @adjoint
 # The sorting of allocation weighting introduce discontinuities
 # in the backward pass, so we set the pullback to 1
-#@adjoint allocationweighting(u::AbstractArray; eps=_EPSILON) =
-#allocationweighting(u; eps=eps), Δ -> (Δ, )
+@adjoint allocationweighting(u::AbstractArray; eps=_EPSILON) =
+allocationweighting(u; eps=eps), Δ -> (Δ, )
 @adjoint allocationweighting(u::AbstractMatrix; eps=_EPSILON) =
 allocationweighting(u; eps=eps), Δ -> (Δ, )
 
@@ -176,6 +176,16 @@ Calculate the write weightings over the matrix rows
 """
 function writeweight(cw, a, gw, ga)
     return gw*(ga.*(a) + (1-ga).*cw)
+end
+
+function writeweight(cw::AbstractArray{T, 3},
+                     a::AbstractArray{T, 2},
+                     gw::AbstractArray{T, 1},
+                     ga::AbstractArray{T, 1}) where T
+    a = reshape(a, size(a,1), 1, size(a, 2))
+    gw = reshape(gw, 1, 1, size(gw)...)
+    ga = reshape(ga, 1, 1, size(ga)...)
+    return gw.*(ga .* a + (one(T) .- ga).*cw)
 end
 
 precedenceweight(p_prev, ww) = (1-sum(ww))*p_prev + ww
@@ -195,12 +205,53 @@ end
 forwardweight(L, wr) = L*wr
 backwardweight(L, wr) = L'*wr
 
+function forwardweight(L::AbstractArray{T, 3}, wr::AbstractArray{T, 3}) where T
+    B = size(L, 3)
+    res = Zygote.Buffer(wr)
+    for batch in 1:B
+        batchforw = L[:, :, batch]*wr[:, :, batch]
+        res[:, :, batch] = batchforw
+    end
+    copy(res)
+end
+
+
+function backwardweight(L::AbstractArray{T, 3}, wr::AbstractArray{T, 3}) where T
+    B = size(L, 3)
+    res = Zygote.Buffer(wr)
+    for batch in 1:B
+        batchforw = L[:, :, batch]'*wr[:, :, batch]
+        res[:, :, batch] = batchforw
+    end
+    copy(res)
+end
+
+
 """
-readweight(backw, content, forw, readmode)
+    readweight(backw, content, forw, readmode)
 
 Interpolate the backward weighting, content weighting and forward weighting.
 readmode is a vector of size 3 summing to 1.
 """
 function readweight(backw, content, forw, readmode)
     return readmode[1]*backw + readmode[2]*content + readmode[3]*forw
+end
+"""
+    
+    readweigth(backw::AbstractArray::{T, 2},
+    cr::AbstractArray{T, 3},
+    forw::AbstractArray{T, 2},
+    readmode::AbstractArray{T, 2}) where T
+
+    backw, cr, forw: tesnors size (N x R x Batchsize)
+    readmode: tensor size (3 x Batchsize)
+"""
+function readweigth(backw::AbstractArray{T, 3},
+                    cr::AbstractArray{T, 3},
+                    forw::AbstractArray{T, 3},
+                    readmode::AbstractArray{T, 2}) where T
+    backweight = reshape(readmode[1, :], 1, 1, size(readmode[1, :])...)
+    contweight = reshape(readmode[2, :], 1, 1, size(readmode[2, :])...)
+    forwweight = reshape(readmode[3, :], 1, 1, size(readmode[3, :])...)
+    return backweight .* backw + contweight .* cr + forwweight .* forw
 end

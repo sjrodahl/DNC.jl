@@ -17,12 +17,15 @@ in_Sn(vec) = sum(vec) == 1.0
 in_Δn(vec) = sum(vec) >= 0.0 && sum(vec) <= 1.0
 
 N, W, R, B = 4, 8, 2, 4
-key = rand(Float32, W, R, B)
+keyr = rand(Float32, W, R, B)
+keyw = rand(Float32, W, 1, B)
 mem = rand(Float32, N, W, B)
-β = DNC.oneplus.(rand(Float32, R, B))
+βr = DNC.oneplus.(rand(Float32, R, B))
+βw = DNC.oneplus.(rand(Float32, 1, B))
 inputs = (wr=rand(Float32, N, R, B),
           f=σ.(rand(Float32, R, B)),
-          ww=rand(Float32, N, 1, B))
+          ww=rand(Float32, N, 1, B),
+          readmode=rand(Float32, 3, B))
 state = State(
     zeros(Float32, N, N, B),
     zeros(Float32, N, B),
@@ -31,23 +34,34 @@ state = State(
     zeros(Float32, N, R, B))
 
 @testset "Batch-training" begin
-    @testset "Contentaddress" begin
-        contaddr = DNC.contentaddress(key, mem, β)
-        @test size(contaddr) == (N, R, B)
-        @test eltype(contaddr) == Float32
-        g = gradient(key, mem, β) do k, m, b
-            sum(DNC.contentaddress(k, m, b))
-        end
-        @test length(g) == 3
+    cr= DNC.contentaddress(keyr, mem, βr)
+    @test size(cr) == (N, R, B)
+    @test eltype(cr) == Float32
+    g = gradient(key, mem, β) do k, m, b
+        sum(DNC.contentaddress(k, m, b))
     end
-    @testset "Memoryretention" begin
-        memret = DNC.memoryretention(inputs.wr, inputs.f)
-        @test eltype(memret) == Float32
-    end
+    @test length(g) == 3
+    cw = DNC.contentaddress(keyw, mem, βw)
+    @test size(cw) == (N, 1, B)
+    memret = DNC.memoryretention(inputs.wr, inputs.f)
+    @test eltype(memret) == Float32
+    @test size(memret) == (N, B)
     u = DNC.usage(state.u, state.ww, state.wr, inputs.f)
     @test eltype(u) == Float32
     a = DNC.allocationweighting(u)
     @test eltype(a) == Float32
+    gw, ga = rand(Float32, B), rand(Float32, B)
+    ww = DNC.writeweight(cw, a, gw, ga)
+    @test eltype(ww) == Float32
+    @test size(ww) == (N, 1, B)
+    forw = DNC.forwardweight(state.L, state.wr)
+    backw = DNC.backwardweight(state.L, state.wr)
+    wr = DNC.readweight(backw, cr, forw, inputs.readmode)
+    @test eltype(forw) == Float32
+    @test eltype(backw) == Float32
+    @test eltype(wr) == Float32
+    @test size(wr) == (N, R, B)
+
 end
 
 @testset "Content-based addressing" begin
@@ -90,8 +104,9 @@ end
     state2.u = u_prev
 
     @testset "Memory retention 𝜓" begin
-        @test DNC.memoryretention(usagecase1.wr, usagecase1.f) == [0.5, 0.75, 0.75]
-        @test eltype(DNC.memoryretention(usagecase1.wr, usagecase1.f)) == Float32
+        memret = DNC.memoryretention(usagecase1.wr, usagecase1.f) 
+        @test memret == [0.5, 0.75, 0.75]
+        @test eltype(memret) == Float32
         g = gradient(usagecase1.wr, usagecase1.f) do wr, f
             sum(DNC.memoryretention(wr, f))
         end
@@ -114,17 +129,9 @@ end
 
     @testset "Usage u⃗" begin
         wr, f, ww = usagecase1
-        𝜓 = DNC.memoryretention(wr, f)
-        u = DNC._usage(u_prev, ww, 𝜓)
+        u = DNC.usage(u_prev, ww, wr, f)
         @test u == [1//2, 3//8, 3//16]
         @test eltype(u) == Float32
-        g = gradient(ww, 𝜓) do ww, 𝜓
-            sum(DNC._usage(u_prev, ww, 𝜓))
-        end
-        @test length(g) == 2
-        for grad in g
-            @test eltype(grad) == Float32
-        end
         g = gradient(ww, wr, f) do ww, wr, f
             sum(DNC.usage(u_prev, ww, wr, f))
         end
@@ -134,14 +141,13 @@ end
         end
         # Two read heads
         wr, f, ww = usagecase2
-        𝜓 = DNC.memoryretention(wr, f)
-        u = DNC._usage(u_prev, ww, 𝜓)
+        u = DNC.usage(u_prev, ww, wr, f)
         @test isapprox(u, [0.4, 0.35, 0.225], atol=1e-5)
         @test eltype(u) == Float32
-        g = gradient(ww, 𝜓) do ww, 𝜓
-            sum(DNC._usage(u_prev, ww, 𝜓))
+        g = gradient(ww, wr, f) do ww, wr, f
+            sum(DNC.usage(u_prev, ww, wr, f))
         end
-        @test length(g) == 2
+        @test length(g) == 3
         for grad in g
             @test eltype(grad) == Float32
         end
@@ -150,18 +156,12 @@ end
     @testset "Allocation a⃗" begin
         # Using approximation due to DNC's use of _EPSILON to avoid num. instability
         wr, f, ww = usagecase2
-        u = DNC._usage(u_prev,ww, DNC.memoryretention(wr, f))
+        u = DNC.usage(u_prev,ww, wr, f)
         alloc = DNC.allocationweighting(u)
         @test eltype(alloc) == Float32
         @test isapprox(alloc, [0.04725, 0.14625, 0.775]; atol=DNC._EPSILON*10)
-        @test DNC.allocationweighting(f, wr, ww, u_prev) == alloc
-        @test eltype(DNC.allocationweighting(f, wr, ww, u_prev)) == Float32
-        @test DNC.allocationweighting(f, state2) == alloc
-        @test eltype(DNC.allocationweighting(f, state2)) == Float32
-        g = gradient(f, wr, ww) do f, wr, ww
-            sum(DNC.allocationweighting(f, wr, ww, u_prev))
-        end
-        @test length(g) == 3
+        g = gradient(x->sum(DNC.allocationweighting(x)), u)
+        @test length(g) == 1
         for grad in g
             @test eltype(grad) == Float32
         end
