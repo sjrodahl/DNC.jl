@@ -72,8 +72,8 @@ end
     end
 
     @testset "Dimensions" begin
-        @test size(inputs.kr) == (W, R)
-        @test size(inputs.kw) == (W, 1)
+        @test size(inputs.kr) == (W, R, 1)
+        @test size(inputs.kw) == (W, 1, 1)
         @test size(inputs.βr) == (R,)
         @test size(inputs.βw) == (1,)
         @test size(inputs.ga) == (1,)
@@ -81,7 +81,7 @@ end
         @test size(inputs.v) == (W,)
         @test size(inputs.e) == (W,)
         @test size(inputs.f) == (R,)
-        @test size(inputs.readmode) == (3, R)
+        @test size(inputs.readmode) == (3, R, 1)
     end
 
     @testset "Domain" begin
@@ -111,5 +111,21 @@ end
         @test !isnothing(g)
     end
 
+    @testset "Batch training" begin
+        B = 2
+        ξ = rand(Float32, 10, B)
+        inputs = DNC.split_ξ(ξ, transforms)
+
+        @test size(inputs.kr) == (W, R, B)
+        @test size(inputs.kw) == (W, 1, B)
+        @test size(inputs.βr) == (R, B)
+        @test size(inputs.βw) == (1, B)
+        @test size(inputs.ga) == (1, B)
+        @test size(inputs.gw) == (1, B)
+        @test size(inputs.v) == (W, B)
+        @test size(inputs.e) == (W, B)
+        @test size(inputs.f) == (R, B)
+        @test size(inputs.readmode) == (3, R, B)
+    end
 end
 

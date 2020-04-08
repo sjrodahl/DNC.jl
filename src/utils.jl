@@ -49,12 +49,24 @@ function calcoutput(v, r, Wr)
     return v .+ Wr*r
 end
 
+function calcoutput(v::AbstractArray{T, 2}, r::AbstractArray{T, 2}, Wr::AbstractArray{T, 3}) where T
+    Y, _, B = size(Wr)
+    out = Zygote.Buffer(v, T, (Y, B))
+    @views for b in 1:B
+        out[:, b] = v[:, b] .+ Wr[:, :, b]*r[:, b]
+    end
+    copy(out)
+end
+
+
+
+
 
 function inputmappings(numinputs,R, W)
     lin(outsize) = Dense(numinputs, outsize)
     function lin(firstdim, seconddim)
         transformed  = Dense(numinputs, firstdim * seconddim)
-        Chain(transformed, x-> reshape(x, firstdim, seconddim))
+        Chain(transformed, x-> reshape(x, firstdim, seconddim, :))
     end
     (v = lin(W),
     ê = lin(W),
