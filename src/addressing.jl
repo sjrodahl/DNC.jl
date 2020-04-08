@@ -93,6 +93,9 @@ Calculate the usage vector of the memory rows.
 A row is considered used (u[i]=1) if they have recently been written to and haven't been retained by the free gates (𝜓[i] =1)
 """
 function usage(u_prev, ww_prev, wr_prev, freegate)
+    if size(ww_prev) == 3
+        ww_prev = dropdims(ww_prev; dims=2)
+    end
     𝜓 = memoryretention(wr_prev, freegate)
     _usage(u_prev, ww_prev, 𝜓)
 end
@@ -188,11 +191,11 @@ a:
 """
 function writeweight(cw::AbstractArray{T, 3},
                      a::AbstractArray{T, 2},
-                     gw::AbstractArray{T, 1},
-                     ga::AbstractArray{T, 1}) where T
+                     gw::AbstractArray{T, 2},
+                     ga::AbstractArray{T, 2}) where T
     a = reshape(a, size(a,1), 1, size(a, 2))
-    gw = reshape(gw, 1, 1, size(gw)...)
-    ga = reshape(ga, 1, 1, size(ga)...)
+    gw = reshape(gw, 1, size(gw)...)
+    ga = reshape(ga, 1, size(ga)...)
     return gw.*(ga .* a + (one(T) .- ga).*cw)
 end
 
@@ -310,7 +313,7 @@ end
 # Arguments
 - `backw`, `cr`, `forw`: (N x R x B)
 - `readmode`: (3 x R x B)
-
+```
 # Returns 
 - (N x R x B) tensor represented each read heads readweights
 """
