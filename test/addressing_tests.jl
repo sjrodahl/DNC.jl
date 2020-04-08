@@ -26,7 +26,7 @@ mem = rand(Float32, N, W, B)
 inputs = (wr=rand(Float32, N, R, B),
           f=σ.(rand(Float32, R, B)),
           ww=rand(Float32, N, 1, B),
-          readmode=rand(Float32, 3, B))
+          readmode=rand(Float32, 3, R, B))
 state = State(
     zeros(Float32, N, N, B),
     zeros(Float32, N, B),
@@ -239,7 +239,7 @@ end
         f = [1.f0, 0, 0]
         c = [0.f0, 1, 0]
         pi = [0.f0, 1, 0]
-        readw = DNC.readweight(b, c, f, pi)
+        readw = DNC._readweight(b, c, f, pi)
         @test in_Δn(readw)
         @test eltype(readw) == Float32
     end

@@ -297,11 +297,11 @@ end
 Interpolate the backward weighting, content weighting and forward weighting.
 readmode is a vector of size 3 summing to 1.
 """
-function readweight(backw, content, forw, readmode)
+function _readweight(backw, content, forw, readmode)
     return readmode[1]*backw + readmode[2]*content + readmode[3]*forw
 end
+
 """
-    
     readweigth(backw::AbstractArray::{T, 2},
     cr::AbstractArray{T, 3},
     forw::AbstractArray{T, 2},
@@ -309,16 +309,19 @@ end
 
 # Arguments
 - `backw`, `cr`, `forw`: (N x R x B)
-- `readmode`: (3 x B)
+- `readmode`: (3 x R x B)
 
 # Returns 
 - (N x R x B) tensor represented each read heads readweights
 """
-function readweight(backw::AbstractArray{T, 3}, cr::AbstractArray{T, 3}, forw::AbstractArray{T, 3}, readmode::AbstractArray{T, 2}) where T
+function readweight(backw::AbstractArray{T, 3}, cr::AbstractArray{T, 3}, forw::AbstractArray{T, 3}, readmode::AbstractArray{T, 3}) where T
     out = Zygote.Buffer(cr)
+    R = size(cr, 2)
     B = size(cr, 3)
     @views for b in 1:B
-        out[:, :, b] = readweight(backw[:, :, b], cr[:, :, b], forw[:, :, b], readmode[:, b])
+        for r in 1:R
+            out[:, r, b] = _readweight(backw[:, r, b], cr[:, r, b], forw[:, r, b], readmode[:, r, b])
+        end
     end
     copy(out)
 end
