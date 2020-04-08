@@ -32,12 +32,22 @@ DNCCell(in::Int, out::Int, N::Int, W::Int, R::Int; init=Flux.glorot_uniform) =
         LSTM(inputsize(in, R, W), outputsize(R, N, W, in, out)),
         in, out, N, W, R; init=init)
 
+DNCCell(in::Int, out::Int, N::Int, W::Int, R::Int, B::Int; init=Flux.glorot_uniform) = 
+    DNCCell(
+        LSTM(inputsize(in, R, W), outputsize(R, N, W, in, out)),
+        zeros(Float32, R*W, B),
+        init(out, R*W, B),
+        R, W, in, out,
+        MemoryAccess(outputsize(R, N, W, in, out)-out, N, W, R, B))
+
+
 function (m::DNCCell)(h, x)
+    B = size(m.Wr, 3)
     out = m.controller([x;h])
-    v = out[1:m.Y]
-    ξ = out[m.Y+1:end]
+    v = out[1:m.Y, :]
+    ξ = out[m.Y+1:end, :]
     r = m.memoryaccess(ξ)
-    r = reshape(r, size(r)[1]*size(r)[2])
+    r = reshape(r, size(r)[1]*size(r)[2], B)
     return r, calcoutput(v, r, m.Wr)
 end
 
