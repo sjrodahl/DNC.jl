@@ -19,14 +19,14 @@ contentread = (
 backwardread = (
     kr = Matrix([-1.0f0 -2.0f0 -5.0f0]'),
     βr = [100.0f0],
-    f = 0.0f0,
+    f = [0.0f0],
     readmode = Matrix([1.0f0 0.0f0 0.0f0]')
     )
 
 forwardread = (
     kr = Matrix([-1.0f0 -2.0f0 -5.0f0]'),
     βr = [100.0f0],
-    f = 0.0f0,
+    f = [0.0f0],
     readmode = Matrix([0.0f0 0.0f0 1.0f0]')
     )
 
@@ -35,9 +35,9 @@ contentwrite = (
     βw = [10.0f0],
     e = [1.0f0, 1.0f0, 1.0f0],
     v = [10.0f0, 20.0f0, 30.0f0],
-    ga = 0.0f0,
-    gw = 1.0f0,
-    f = 1.0f0
+    ga = [0.0f0],
+    gw = [1.0f0],
+    f = [1.0f0]
 )
 
 allocationwrite = (
@@ -45,9 +45,9 @@ allocationwrite = (
     βw = [1.0f0],
     e = [1.0f0, 1.0f0, 1.0f0],
     v = [10.0f0, 20.0f0, 30.0f0],
-    ga =1.0f0,
-    gw =1.0f0,
-    f = 1.0f0
+    ga =[1.0f0],
+    gw =[1.0f0],
+    f = [1.0f0]
 )
 
 
