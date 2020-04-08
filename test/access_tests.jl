@@ -132,3 +132,25 @@ rng = MersenneTwister(234)
     end
 
 end
+
+insize, N, W, R, B = 20, 5, 10, 2, 4
+ma = DNC.MemoryAccess(insize, N, W, R, B)
+M = rand(rng, Float32, N, W, B)
+L = rand(rng, Float32, N, N, B)
+prev_wr = rand(rng, Float32, N, R, B)
+inputsraw = rand(rng, Float32, insize, B)
+mappings = DNC.inputmappings(20, R, W)
+inputs = DNC.split_ξ(inputsraw, mappings)
+state = State(N, R, B)
+
+@testset "Batch training" begin
+    r = readweights(M, inputs, L, prev_wr)
+    @test size(r) == (N, R, B)
+    u = DNC.usage(state.u, state.ww, state.wr, inputs.f)
+    w = writeweights(M, inputs, u)
+    @test size(w) == (N, 1, B)
+    newM = DNC.eraseandadd(M, w, inputs.e, inputs.v)
+    @test size(newM) == (N, W, B)
+    res = ma(inputsraw)
+    @test size(res) == (W, R, B)
+end

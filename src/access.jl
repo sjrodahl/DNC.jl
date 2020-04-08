@@ -17,13 +17,27 @@ State(N::Int, R::Int) = State(
     zeros(Float32, N, R)
     )
 
+State(N::Int, R::Int, B::Int) = State(
+    zeros(Float32, N, N, B),
+    zeros(Float32, N, B),
+    zeros(Float32, N, B),
+    zeros(Float32, N, 1, B),
+    zeros(Float32, N, R, B)
+    )
+
+
 mutable struct MemoryAccess
     M
     state
     inputmaps
 end
+
 MemoryAccess(inputsize, N, W, R; init=Flux.glorot_uniform) = 
     MemoryAccess(init(N, W), State(N, R), inputmappings(inputsize, R, W))
+
+MemoryAccess(inputsize, N, W, R, B; init=Flux.glorot_uniform) = 
+    MemoryAccess(init(N, W, B), State(N, R, B), inputmappings(inputsize, R, W))
+
 
 function (ma::MemoryAccess)(inputs)
     p_prev, u_prev, ww_prev, wr_prev = ma.state.p, ma.state.u, ma.state.ww, ma.state.wr
@@ -34,13 +48,23 @@ function (ma::MemoryAccess)(inputs)
     update_state_after_write!(ma.state, ww, u)
     wr = readweights(ma.M, inputs, ma.state.L, wr_prev)
     update_state_after_read!(ma.state, wr)
-    readvectors = ma.M' * wr
+    readvectors = readmem(ma.M, wr)
     readvectors
 end
 
+readmem(M, wr) = M'*wr
+
+function readmem(M::AbstractArray{T, 3}, wr::AbstractArray{T, 3}) where T
+    N, W, B = size(M)
+    R = size(wr, 2)
+    readvec = Zygote.Buffer(wr, T, (W, R, B))
+    @views for b in 1:B
+        readvec[:, :, b] = M[:, :, b]' * wr[:, :, b]
+    end
+    copy(readvec)
+end
 
 """
-    readweights(inputs, L::Matrix, prev_wr)
     readweights(M, inputs, L, prev_wr)
 
 Fuzzy read the memory M. 
@@ -60,7 +84,7 @@ Fuzzy write to memory. Location is based on either content similarity or row usa
 
 """
 function writeweights(M, inputs, usage)
-    k, β, ga, gw = inputs.kw, inputs.βw, inputs.ga[1], inputs.gw[1]
+    k, β, ga, gw = inputs.kw, inputs.βw, inputs.ga, inputs.gw
     cw = contentaddress(k, M, β)
     a = allocationweighting(usage)
     ww = writeweight(cw, a, gw, ga)
@@ -84,3 +108,14 @@ end
     update_state_after_read!(state, wr), _ -> nothing
 
 eraseandadd(M, ww, e, a) = M .* (ones(Float32, size(M)) - ww * e') + ww * a'
+
+
+function eraseandadd(M::AbstractArray{T, 3}, ww::AbstractArray{T, 3}, e::AbstractArray{T,2}, a::AbstractArray{T, 2}) where T
+    newM = Zygote.Buffer(M)
+    B = size(M, 3)
+    @views for b in 1:B
+        newM[:, :, b] = eraseandadd(M[:, :, b], ww[:, :, b], e[:, b], a[:, b])
+    end
+    copy(newM)
+end
+
