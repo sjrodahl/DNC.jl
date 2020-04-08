@@ -1,3 +1,4 @@
+using Flux: σ
 using Zygote
 using DNC: contentaddress
 
@@ -37,7 +38,7 @@ state = State(
     cr= DNC.contentaddress(keyr, mem, βr)
     @test size(cr) == (N, R, B)
     @test eltype(cr) == Float32
-    g = gradient(key, mem, β) do k, m, b
+    g = gradient(keyr, mem, βr) do k, m, b
         sum(DNC.contentaddress(k, m, b))
     end
     @test length(g) == 3
@@ -61,6 +62,11 @@ state = State(
     @test eltype(backw) == Float32
     @test eltype(wr) == Float32
     @test size(wr) == (N, R, B)
+    p = DNC.precedenceweight(state.p, ww)
+    @test size(p) == (N, B)
+    L = zeros(Float32, N, N, B) # Don't interfere with later tests
+    DNC.updatelinkmatrix!(L, p, ww)
+    @test eltype(L) == Float32
 
 end
 

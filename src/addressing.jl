@@ -3,27 +3,6 @@ using Flux: param
 using Zygote: Buffer
 
 
-"""
-contentaddress(key, M, β[, K])
-
-Compute the similarity K (default cosine similarity) between all rows of memory M and the key.
-β acts as sharpener: high values concentrate weights, low values (<1) blurs them.
-"""
-#function contentaddress(key, M, β, K=cosinesim)
-#    wordsize, numreadheads = size(key)
-#    numwords, _ = size(M)
-#    all = [_contentaddress(key[:,i], M, β[i]) for i in 1:numreadheads]
-#    return reshape(vcat(all...),numwords, numreadheads)
-#end
-#
-#function _contentaddress(key, M, β, K=cosinesim)
-#    r, c = size(M)
-#    xs = [K(key, M[row,:]) for row in 1:r]
-#    weightedsoftmax(xs, β)
-#end
-
-
-
 function _pairwise!(r::Zygote.Buffer,
                     metric::Function,
                     col::AbstractArray{T, 2},
@@ -61,6 +40,18 @@ function _pairwise!(r::Zygote.Buffer,
     r
 end
 
+"""
+    contentaddress(key::AbstractArray{T, 2}, mem::AbstractArray{T, 2}, β::AbstractArray{S, 1}, K=weightedcosinesim) where {T, S}
+    contentaddress(key::AbstractArray{T, 3}, mem::AbstractArray{T, 3}, β::AbstractArray{S, 2}, K=weightedcosinesim) where {T, S}
+
+Compute the similarity K (default cosine similarity) between all rows of memory M and the key.
+β acts as sharpener: high values concentrate weights, low values (<1) blurs them.
+
+# Arguments
+- `key`: (N x R [x B])
+- `mem`: (N x W [x B])
+- `β`: (R [x B])
+"""
 function contentaddress(key::AbstractArray{T, 2}, mem::AbstractArray{T, 2}, β::AbstractArray{S, 1}, K=weightedcosinesim) where {T, S}
     wordsize, numreadheads = size(key)
     numloc, _ = size(mem)
@@ -82,11 +73,10 @@ function contentaddress(key::AbstractArray{T, 3}, mem::AbstractArray{T, 3}, β::
 end
 
 """
-
     memoryretention(wr, f)
+
 Determine how much each memory location will not be freed by the free gates.
-Batchable.
-Returns a tensor of size (N x Batchsize)
+Returns a tensor of size (N x B)
 """
 function memoryretention(wr, f)
     rs = one(eltype(wr)) .- wr.*reshape(f, 1, size(f)...)
@@ -95,6 +85,7 @@ function memoryretention(wr, f)
 end
 
 _usage(u_prev, ww_prev, 𝜓) = (u_prev + ww_prev - (u_prev.*ww_prev)) .* 𝜓
+
 """
 usage(u_prev, ww_prev, wr_prev, freegate)
 
@@ -126,16 +117,11 @@ cumprodexclusive(arr::AbstractArray; dims=1) = cumprod(arr; dims=dims) ./ arr
 
 
 """
-allocationweighting(usage::AbstractArray; eps::AbstractFloat=1e-6)
-allocationweighting(freegate, prev_wr, prev_ww, prev_usage; eps::AbstractFloat=1e-6)
-allocationweighting(freegate, state::State; eps::AbstractFloat=1e-6)
+    allocationweighting(usage::AbstractArray; eps::AbstractFloat=1e-6)
 
 Provide new locations for writing. If all locations are used, no writes can be made.
 
 """
-function allocationweighting end
-
-
 function allocationweighting(u::AbstractArray; eps::AbstractFloat=_EPSILON)
     u = eps .+ (1 - eps) .* u # Ensure values are large enough for numerical stability in cumprodexclusive
     N = length(u)
@@ -147,6 +133,15 @@ function allocationweighting(u::AbstractArray; eps::AbstractFloat=_EPSILON)
     a
 end
 
+"""
+    allocationweighting(u::AbstractMatrix; eps::AbstractFloat=_EPSILON)
+# Arguments
+- `u`: (N x B) usage tensor
+
+# Returns
+- `a`: (N x B) tensor
+
+"""
 function  allocationweighting(u::AbstractMatrix; eps::AbstractFloat=_EPSILON)
     u = eps .+ (1-eps) .* u
     ϕ = [sortperm(u[:, i]) for i in 1:size(u, 2)]
@@ -170,7 +165,7 @@ allocationweighting(u; eps=eps), Δ -> (Δ, )
 allocationweighting(u; eps=eps), Δ -> (Δ, )
 
 """
-writeweight(contentweighting, allocationweighting, writegate, allocationgate)
+    writeweight(contentweighting, allocationweighting, writegate, allocationgate)
 
 Calculate the write weightings over the matrix rows
 """
@@ -178,6 +173,19 @@ function writeweight(cw, a, gw, ga)
     return gw*(ga.*(a) + (1-ga).*cw)
 end
 
+"""
+    writeweight(cw::AbstractArray{T, 3},
+                 a::AbstractArray{T, 2},
+                gw::AbstractArray{T, 1},
+                ga::AbstractArray{T, 1}) where T
+Batch version
+#Arguments
+- `cw`: (N x 1 x B) write content weighting
+- `a`: (N x B) allocation weighting
+- `gw`: (1 x B) write gate
+- `ga`: (1 x B) allocation gate
+a:
+"""
 function writeweight(cw::AbstractArray{T, 3},
                      a::AbstractArray{T, 2},
                      gw::AbstractArray{T, 1},
@@ -189,6 +197,20 @@ function writeweight(cw::AbstractArray{T, 3},
 end
 
 precedenceweight(p_prev, ww) = (1-sum(ww))*p_prev + ww
+
+"""
+    precedenceweight(p_prev::AbstractArray{T, 2}, ww::AbstractArray{T, 3}) where T
+
+p_prev: (N, B)
+ww: (N, 1, B)
+
+return p; (N, B)
+"""
+function precedenceweight(p_prev::AbstractArray{T, 2}, ww::AbstractArray{T, 3}) where T
+    ww = dropdims(ww; dims=2)
+    wwsum = sum(ww; dims=1) #(1 x B)
+    return (one(T).-wwsum).*p_prev + ww
+end
 
 function updatelinkmatrix!(L, precedence, ww)
     N, _ = size(L)
@@ -202,26 +224,68 @@ function updatelinkmatrix!(L, precedence, ww)
     L
 end
 
+"""
+    updatelinkmatrix(L::AbstractArray{T, 3}, p::AbstractArray{T, 2}, ww::AbstractArray{T, 3}) where T
+
+# Arguments
+- `L`: (N x N x B)
+- `p`: (N x B)
+- `ww`: (N x 1 x B)
+"""
+function updatelinkmatrix!(L::AbstractArray{T, 3}, p::AbstractArray{T, 2}, ww::AbstractArray{T, 3}) where T
+    ww = dropdims(ww; dims=2)
+    N, _, B = size(L)
+    for b in 1:B
+        for i in 1:N
+            for j in 1:N
+                if i != j
+                    L[i, j, b] = (one(T) - ww[i, b] - ww[j, b]) * L[i, j, b] + ww[i, b]*p[j, b]
+                end
+            end
+        end
+    end
+    L
+end
+
+
 forwardweight(L, wr) = L*wr
 backwardweight(L, wr) = L'*wr
 
+"""
+    forwardweight(L::AbstractArray{T, 3}, wr::AbstractArray{T, 3}) where T
+Location weight for reading the next-written-to location.
+
+# Arguments
+- `L`: (N x N x B) link matrix
+- `wr`: (N x R x B) read weights
+
+See also: [`backwardweight`](@ref)
+"""
 function forwardweight(L::AbstractArray{T, 3}, wr::AbstractArray{T, 3}) where T
     B = size(L, 3)
     res = Zygote.Buffer(wr)
-    for batch in 1:B
-        batchforw = L[:, :, batch]*wr[:, :, batch]
-        res[:, :, batch] = batchforw
+    @views for batch in 1:B
+        res[:, :, batch] =  L[:, :, batch]*wr[:, :, batch]
     end
     copy(res)
 end
 
 
+"""
+    backwardweight(L::AbstractArray{T, 3}, wr::AbstractArray{T, 3}) where T
+Location weight for reading the previous-written-to location.
+
+# Arguments
+- `L`: (N x N x B) link matrix
+- `wr`: (N x R x B) read weights
+
+See also: [`forwardweight`](@ref)
+"""
 function backwardweight(L::AbstractArray{T, 3}, wr::AbstractArray{T, 3}) where T
     B = size(L, 3)
     res = Zygote.Buffer(wr)
-    for batch in 1:B
-        batchforw = L[:, :, batch]'*wr[:, :, batch]
-        res[:, :, batch] = batchforw
+    @views for batch in 1:B
+        res[:, :, batch] = L[:, :, batch]'*wr[:, :, batch]
     end
     copy(res)
 end
@@ -243,15 +307,18 @@ end
     forw::AbstractArray{T, 2},
     readmode::AbstractArray{T, 2}) where T
 
-    backw, cr, forw: tesnors size (N x R x Batchsize)
-    readmode: tensor size (3 x Batchsize)
+# Arguments
+- `backw`, `cr`, `forw`: (N x R x B)
+- `readmode`: (3 x B)
+
+# Returns 
+- (N x R x B) tensor represented each read heads readweights
 """
-function readweigth(backw::AbstractArray{T, 3},
-                    cr::AbstractArray{T, 3},
-                    forw::AbstractArray{T, 3},
-                    readmode::AbstractArray{T, 2}) where T
-    backweight = reshape(readmode[1, :], 1, 1, size(readmode[1, :])...)
-    contweight = reshape(readmode[2, :], 1, 1, size(readmode[2, :])...)
-    forwweight = reshape(readmode[3, :], 1, 1, size(readmode[3, :])...)
-    return backweight .* backw + contweight .* cr + forwweight .* forw
+function readweight(backw::AbstractArray{T, 3}, cr::AbstractArray{T, 3}, forw::AbstractArray{T, 3}, readmode::AbstractArray{T, 2}) where T
+    out = Zygote.Buffer(cr)
+    B = size(cr, 3)
+    @views for b in 1:B
+        out[:, :, b] = readweight(backw[:, :, b], cr[:, :, b], forw[:, :, b], readmode[:, b])
+    end
+    copy(out)
 end
