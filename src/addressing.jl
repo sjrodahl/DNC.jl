@@ -93,7 +93,7 @@ Calculate the usage vector of the memory rows.
 A row is considered used (u[i]=1) if they have recently been written to and haven't been retained by the free gates (𝜓[i] =1)
 """
 function usage(u_prev, ww_prev, wr_prev, freegate)
-    if size(ww_prev) == 3
+    if ndims(ww_prev) == 3
         ww_prev = dropdims(ww_prev; dims=2)
     end
     𝜓 = memoryretention(wr_prev, freegate)
