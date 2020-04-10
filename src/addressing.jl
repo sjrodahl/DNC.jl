@@ -67,9 +67,11 @@ function contentaddress(key::AbstractArray{T, 3}, mem::AbstractArray{T, 3}, β::
     wordsize, numreadheads, batchsize = size(key)
     numloc, _, _ = size(mem)
     out = Zygote.Buffer(key, eltype(key), (numloc, numreadheads, batchsize))
-    _pairwise!(out, weightedcosinesim, key, mem, β)
-    out = copy(out)
-    return out ./ sum(out; dims=1)
+    _pairwise!(out, K, key, mem, β)
+    @views for b in 1:batchsize
+        out[:, :, b] = softmax(out[:, :, b]; dims=1)
+    end
+    copy(out)
 end
 
 """
