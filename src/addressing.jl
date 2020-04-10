@@ -31,7 +31,7 @@ function _pairwise!(r::Zygote.Buffer,
     @inbounds for k = 1:batchsize
         @inbounds for j = 1:ncol
             colj = view(col, :, j, k)
-            for i = 1:nrow
+            @inbounds for i = 1:nrow
                 rowi = view(row, i, :, k)
                 r[i, j, k] = metric(rowi, colj, β[j, k])
             end
