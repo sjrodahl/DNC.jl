@@ -23,17 +23,19 @@ seqs = [RepeatCopy(;
             maxlength=maxlength)
         for i in 1:(niter*batchsize)]
 
-batcheddata = DataLoader(seqs, batchsize=batchsize)
+batcheddata = RepeatCopyBatchLoader(seqs, batchsize=batchsize)
 
-model = Dnc(X, Y, N, W, R)
 
-loss(rc; printoutput=false) = loss(model, rc; printoutput=printoutput)
+model = Dnc(X, Y, N, W, R, batchsize)
+
+loss(rc::RepeatCopy; printoutput=false) = loss(model, rc; printoutput=printoutput)
+loss(batch::Tuple; printoutput=false) = loss(model, batch...; printoutput=printoutput)
 
 opt = RMSProp(1e-3)
 
 evalcb = ThrottleIterations(100) do
-    idx = rand(1:length(seqs))
-    loss(seqs[idx]; printoutput=true)
+    idx = rand(1:(length(seqs)-batchsize))
+    loss(Base.iterate(batcheddata, idx)[1]; printoutput=true)
 end
 
 @time mytrain!(loss, params(model), batcheddata, opt; cb=evalcb)
