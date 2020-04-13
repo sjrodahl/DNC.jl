@@ -38,10 +38,6 @@ state = State(
     cr= DNC.contentaddress(keyr, mem, βr)
     @test size(cr) == (N, R, B)
     @test eltype(cr) == Float32
-    g = gradient(keyr, mem, βr) do k, m, b
-        sum(DNC.contentaddress(k, m, b))
-    end
-    @test length(g) == 3
     cw = DNC.contentaddress(keyw, mem, βw)
     @test size(cw) == (N, 1, B)
     memret = DNC.memoryretention(inputs.wr, inputs.f)
@@ -80,13 +76,6 @@ end
     res = contentaddress(key, M, β)
     @test res[1] ≈ 1
     @test eltype(res) == Float32
-    g = gradient(key, M, β) do k, M, β
-        sum(sum(contentaddress(k, M, β)))
-    end
-    @test length(g) == 3
-    for grad in g
-        @test eltype(grad) == Float32
-    end
     # Should return equal values for parallel memory rows
     M = Float32[1 0; 2 0]
     key = Float32.(Matrix([1 1]'))
@@ -113,24 +102,10 @@ end
         memret = DNC.memoryretention(usagecase1.wr, usagecase1.f) 
         @test memret == [0.5, 0.75, 0.75]
         @test eltype(memret) == Float32
-        g = gradient(usagecase1.wr, usagecase1.f) do wr, f
-            sum(DNC.memoryretention(wr, f))
-        end
-        @test length(g) == 2
         # Two read heads
-        for grad in g
-            @test eltype(grad) == Float32
-        end
         memret = DNC.memoryretention(usagecase2.wr, usagecase2.f)
         @test isapprox(memret, [0.4, 0.7, 0.9], atol=1e-5)
         @test eltype(memret) == Float32
-        g = gradient(usagecase2.wr, usagecase2.f) do wr, f
-            sum(DNC.memoryretention(wr, f))
-        end
-        @test length(g) == 2
-        for grad in g
-            @test eltype(grad) == Float32
-        end
     end
 
     @testset "Usage u⃗" begin
@@ -138,25 +113,11 @@ end
         u = DNC.usage(u_prev, ww, wr, f)
         @test u == [1//2, 3//8, 3//16]
         @test eltype(u) == Float32
-        g = gradient(ww, wr, f) do ww, wr, f
-            sum(DNC.usage(u_prev, ww, wr, f))
-        end
-        @test length(g) == 3
-        for grad in g
-            @test eltype(grad) == Float32
-        end
         # Two read heads
         wr, f, ww = usagecase2
         u = DNC.usage(u_prev, ww, wr, f)
         @test isapprox(u, [0.4, 0.35, 0.225], atol=1e-5)
         @test eltype(u) == Float32
-        g = gradient(ww, wr, f) do ww, wr, f
-            sum(DNC.usage(u_prev, ww, wr, f))
-        end
-        @test length(g) == 3
-        for grad in g
-            @test eltype(grad) == Float32
-        end
     end
 
     @testset "Allocation a⃗" begin
@@ -166,11 +127,6 @@ end
         alloc = DNC.allocationweighting(u)
         @test eltype(alloc) == Float32
         @test isapprox(alloc, [0.04725, 0.14625, 0.775]; atol=DNC._EPSILON*10)
-        g = gradient(x->sum(DNC.allocationweighting(x)), u)
-        @test length(g) == 1
-        for grad in g
-            @test eltype(grad) == Float32
-        end
         # Allocation is zero if all usages are 1
         allused = ones(5)
         @test isapprox(DNC.allocationweighting(allused), (zeros(5)); atol=DNC._EPSILON*10)

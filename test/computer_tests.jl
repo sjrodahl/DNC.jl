@@ -28,12 +28,6 @@ rng = MersenneTwister(2345)
     out2 = dnc2(x)
     @test length(out2) == Y
     @test eltype(out2) == Float32
-    @testset "Get gradient" begin
-        for dnc in (dnc1, dnc2)
-            g = gradient(x->sum(dnc(x)), x)
-            @test !isnothing(g)
-        end
-    end
 end
 
 @testset "Learn" begin

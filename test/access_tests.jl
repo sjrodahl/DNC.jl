@@ -88,18 +88,6 @@ state = State(
     end
 end
 
-@testset "Gradients" begin
-    @testset "Read gradient" begin
-        L, wr = state.L, state.wr
-        r1 = readweights(M, contentread, L, wr)
-        function f(M, contentread, L, wr)
-            sum(readweights(M, contentread, L, wr))
-        end
-        readweights_g = gradient(f, M, contentread, L, wr)
-        @test true
-    end
-end
-
 @testset "Erase and add" begin
     u = DNC.usage(state.u, state.ww, state.wr, allocationwrite.f)
     new = DNC.eraseandadd(M, [0.0f0, 0, 1], ones(Float32, 3), [2.0f0, 2.0f0, 2.0f0])
@@ -124,13 +112,6 @@ rng = MersenneTwister(234)
         @test eltype(readvectors) == Float32
         @test size(readvectors) == (W, R)
     end
-    @testset "Gradient" begin
-        g = gradient(inputs) do inputs
-            sum(ma(inputs))
-        end
-        @test !isnothing(g)
-    end
-
 end
 
 insize, N, W, R, B = 20, 5, 10, 2, 4
