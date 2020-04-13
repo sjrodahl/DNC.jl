@@ -15,22 +15,13 @@ mutable struct DNCCell
     memoryaccess::MemoryAccess
 end
 
-DNCCell(controller, in::Int, out::Int, N::Int, W::Int, R::Int; init=Flux.glorot_uniform) =
+DNCCell(controller, in::Int, out::Int, N::Int, W::Int, R::Int, B::Int; init=Flux.glorot_uniform) = 
     DNCCell(
         controller,
-        zeros(Float32, R*W),
-        init(out, R*W),
-        R,
-        W,
-        in,
-        out,
-        MemoryAccess(outputsize(R, N, W, in, out)-out, N, W, R)
-    )
-
-DNCCell(in::Int, out::Int, N::Int, W::Int, R::Int; init=Flux.glorot_uniform) =
-    DNCCell(
-        LSTM(inputsize(in, R, W), outputsize(R, N, W, in, out)),
-        in, out, N, W, R; init=init)
+        zeros(Float32, R*W, B),
+        init(out, R*W, B),
+        R, W, in, out,
+        MemoryAccess(outputsize(R, N, W, in, out)-out, N, W, R, B))
 
 DNCCell(in::Int, out::Int, N::Int, W::Int, R::Int, B::Int; init=Flux.glorot_uniform) = 
     DNCCell(
@@ -53,8 +44,8 @@ end
 
 hidden(m::DNCCell) = m.readvectors
 
-@functor DNCCell
 trainable(m::DNCCell) = m.controller, m.Wr
+@functor DNCCell
 
 import Base.show
 function Base.show(io::IO, l::DNCCell)

@@ -9,13 +9,6 @@ mutable struct State
     wr
 end
 
-State(N::Int, R::Int) = State(
-    zeros(Float32, N, N),
-    zeros(Float32, N),
-    zeros(Float32, N),
-    zeros(Float32, N),
-    zeros(Float32, N, R)
-    )
 
 State(N::Int, R::Int, B::Int) = State(
     zeros(Float32, N, N, B),
@@ -32,8 +25,6 @@ mutable struct MemoryAccess
     inputmaps
 end
 
-MemoryAccess(inputsize, N, W, R; init=Flux.glorot_uniform) = 
-    MemoryAccess(init(N, W), State(N, R), inputmappings(inputsize, R, W))
 
 MemoryAccess(inputsize, N, W, R, B; init=Flux.glorot_uniform) = 
     MemoryAccess(init(N, W, B), State(N, R, B), inputmappings(inputsize, R, W))
