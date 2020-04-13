@@ -77,6 +77,9 @@ end
 """
     memoryretention(wr, f)
 
+# Arguments
+- `wr` - (N, R, B): previous iteration read weights.
+- `f` - (R, B): free gates
 Determine how much each memory location will not be freed by the free gates.
 Returns a tensor of size (N x B)
 """
@@ -91,8 +94,14 @@ _usage(u_prev, ww_prev, 𝜓) = (u_prev + ww_prev - (u_prev.*ww_prev)) .* 𝜓
 """
 usage(u_prev, ww_prev, wr_prev, freegate)
 
+# Arguments
+- `u_prev` - (N, B) usage after previous iteration
+- `ww_prev` - (N, 1, B) previous write weights
+- `wr_prev` - (N, R, B) previous read weights
+- `freegate` - (R, B)
+
 Calculate the usage vector of the memory rows.
-A row is considered used (u[i]=1) if they have recently been written to and haven't been retained by the free gates (𝜓[i] =1)
+A row is considered used (``u[i]=1``) if they have recently been written to and haven't been retained by the free gates (``𝜓[i]=1``)
 """
 function usage(u_prev, ww_prev, wr_prev, freegate)
     if ndims(ww_prev) == 3
@@ -104,22 +113,6 @@ end
 
 
 const _EPSILON = 1f-6
-"""
-cumprodexclusive(arr::AbstractArray) 
-Exclusive cumulative product
-
-# Examples
-```jldoctest
-julia> DNC.cumprodexclusive([1, 2, 3, 4])
-4-element Array{Float64,1}:
-1.0
-1.0
-2.0
-6.0
-```
-"""
-cumprodexclusive(arr::AbstractArray; dims=1) = cumprod(arr; dims=dims) ./ arr
-
 
 """
     allocationweighting(usage::AbstractArray; eps::AbstractFloat=1e-6)

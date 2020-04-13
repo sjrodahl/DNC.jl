@@ -7,6 +7,22 @@ cosinesim(u, v) = dot(u, v)/(mynorm(u)*mynorm(v))
 
 weightedcosinesim(u, v, β) = cosinesim(u, v) * β
 
+"""
+cumprodexclusive(arr::AbstractArray) 
+Exclusive cumulative product
+
+# Examples
+```jldoctest
+julia> DNC.cumprodexclusive([1, 2, 3, 4])
+4-element Array{Float64,1}:
+1.0
+1.0
+2.0
+6.0
+```
+"""
+cumprodexclusive(arr::AbstractArray; dims=1) = cumprod(arr; dims=dims) ./ arr
+
 import Base.lastindex
 
 Base.lastindex(b::Zygote.Buffer) = Base.lastindex(b.data)
@@ -57,9 +73,6 @@ function calcoutput(v::AbstractArray{T, 2}, r::AbstractArray{T, 2}, Wr::Abstract
     end
     copy(out)
 end
-
-
-
 
 
 function inputmappings(numinputs,R, W)
