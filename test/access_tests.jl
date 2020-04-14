@@ -62,7 +62,7 @@ state = State(
     expand([0 0 0;
             1 0 0;
             0 1 0], N, N, B),
-    zeros(N, B),
+    zeros(Float32, N, B),
     expand([1, 1, 0], N, B), # 3 is (artificially) set to unused/ free to be allocated
     expand([0, 1, 0], N, 1, B),
     expand([0, 1, 0], N, R, B) # last read was 2, so forward points to 3, back to 1

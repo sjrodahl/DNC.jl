@@ -1,12 +1,12 @@
 using Zygote: @adjoint
 
 
-mutable struct State
-    L
-    p
-    u
-    ww
-    wr
+mutable struct State{T, S}
+    L::T
+    p::S
+    u::S
+    ww::T
+    wr::T
 end
 
 
@@ -19,10 +19,10 @@ State(N::Int, R::Int, B::Int) = State(
     )
 
 
-mutable struct MemoryAccess
-    M
-    state
-    inputmaps
+mutable struct MemoryAccess{R, T, S}
+    M::T
+    state::State{T, S}
+    inputmaps::R
 end
 
 

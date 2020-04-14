@@ -35,7 +35,7 @@ state = State(
     zeros(Float32, N, N, B),
     zeros(Float32, N, B),
     zeros(Float32, N, B),
-    zeros(Float32, N, B),
+    zeros(Float32, N, 1, B),
     zeros(Float32, N, R, B))
 
 @testset "Batch-training" begin

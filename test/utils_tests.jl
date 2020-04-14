@@ -40,18 +40,18 @@ end
 
 @testset "Calc output" begin
     outsize = 5
-    N, W, R = 3, 5, 2
-    readvectors = rand(rng, Float32, W*R)
-    Wr = rand(rng, Float32, outsize, R*W)
-    v = rand(rng, Float32, outsize)
+    N, W, R, B = 3, 5, 2, 1
+    readvectors = rand(rng, Float32, W*R, B)
+    Wr = rand(rng, Float32, outsize, R*W, B)
+    v = rand(rng, Float32, outsize, B)
     res = DNC.calcoutput(v, readvectors, Wr)
-    @test size(res) == (outsize,)
+    @test size(res) == (outsize, B)
     @test eltype(res) == Float32
 end
 
 @testset "Split ξ $(R) read head" for R in 1:2
-    W = 5
-    ξ = rand(rng, Float32, 10)
+    W, B = 5, 1
+    ξ = rand(rng, Float32, 10, B)
     transforms = DNC.inputmappings(10, R, W)
     inputs = DNC.split_ξ(ξ, transforms)
 
@@ -60,16 +60,16 @@ end
     end
 
     @testset "Dimensions" begin
-        @test size(inputs.kr) == (W, R, 1)
-        @test size(inputs.kw) == (W, 1, 1)
-        @test size(inputs.βr) == (R,)
-        @test size(inputs.βw) == (1,)
-        @test size(inputs.ga) == (1,)
-        @test size(inputs.gw) == (1,)
-        @test size(inputs.v) == (W,)
-        @test size(inputs.e) == (W,)
-        @test size(inputs.f) == (R,)
-        @test size(inputs.readmode) == (3, R, 1)
+        @test size(inputs.kr) == (W, R, B)
+        @test size(inputs.kw) == (W, 1, B)
+        @test size(inputs.βr) == (R,B)
+        @test size(inputs.βw) == (1,B)
+        @test size(inputs.ga) == (1,B)
+        @test size(inputs.gw) == (1,B)
+        @test size(inputs.v) == (W,B)
+        @test size(inputs.e) == (W,B)
+        @test size(inputs.f) == (R,B)
+        @test size(inputs.readmode) == (3, R, B)
     end
 
     @testset "Domain" begin
@@ -97,23 +97,6 @@ end
             tot
         end
         @test !isnothing(g)
-    end
-
-    @testset "Batch training" begin
-        B = 2
-        ξ = rand(Float32, 10, B)
-        inputs = DNC.split_ξ(ξ, transforms)
-
-        @test size(inputs.kr) == (W, R, B)
-        @test size(inputs.kw) == (W, 1, B)
-        @test size(inputs.βr) == (R, B)
-        @test size(inputs.βw) == (1, B)
-        @test size(inputs.ga) == (1, B)
-        @test size(inputs.gw) == (1, B)
-        @test size(inputs.v) == (W, B)
-        @test size(inputs.e) == (W, B)
-        @test size(inputs.f) == (R, B)
-        @test size(inputs.readmode) == (3, R, B)
     end
 end
 

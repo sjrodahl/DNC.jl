@@ -1,18 +1,18 @@
 using Flux: @functor
 using Flux: softmax, σ
 
-import Flux.hidden, Flux.trainable
+import Flux.hidden, Flux.trainable, Flux.LSTMCell
 
 
-mutable struct DNCCell
-    controller
-    readvectors
-    Wr
-    R::Int
-    W::Int
-    X::Int
-    Y::Int
-    memoryaccess::MemoryAccess
+mutable struct DNCCell{C, T, S, M}
+    controller::C
+    readvectors::S
+    Wr::T
+    R::Int64
+    W::Int64
+    X::Int64
+    Y::Int64
+    memoryaccess::MemoryAccess{M, T, S}
 end
 
 DNCCell(controller, in::Int, out::Int, N::Int, W::Int, R::Int, B::Int; init=Flux.glorot_uniform) = 
@@ -25,7 +25,7 @@ DNCCell(controller, in::Int, out::Int, N::Int, W::Int, R::Int, B::Int; init=Flux
 
 DNCCell(in::Int, out::Int, N::Int, W::Int, R::Int, B::Int; init=Flux.glorot_uniform) = 
     DNCCell(
-        LSTM(inputsize(in, R, W), outputsize(R, N, W, in, out)),
+        MyLSTM(B, inputsize(in, R, W), outputsize(R, N, W, in, out)),
         zeros(Float32, R*W, B),
         init(out, R*W, B),
         R, W, in, out,
@@ -35,10 +35,10 @@ DNCCell(in::Int, out::Int, N::Int, W::Int, R::Int, B::Int; init=Flux.glorot_unif
 function (m::DNCCell)(h, x)
     B = size(m.Wr, 3)
     out = m.controller([x;h])
-    v = out[1:m.Y, :]
-    ξ = out[m.Y+1:end, :]
+    v = view(out, 1:m.Y, :)
+    ξ = view(out, (m.Y+1):size(out, 1), :)
     r = m.memoryaccess(ξ)
-    r = reshape(r, size(r)[1]*size(r)[2], B)
+    r = reshape(r, size(r,1)*size(r, 2), B)
     return r, calcoutput(v, r, m.Wr)
 end
 
@@ -52,6 +52,25 @@ function Base.show(io::IO, l::DNCCell)
     print(io, "DNCCell($(l.X), $(l.Y))")
 end
 
+mutable struct MyRecur{T, S}
+  cell::T
+  init::S
+  state::S
+end
+
+MyRecur(m, h = hidden(m)) = MyRecur(m, h, h)
+
+function (m::MyRecur)(xs...)
+  h, y = m.cell(m.state, xs...)
+  m.state = h
+  return y
+end
+
+@functor MyRecur cell, init
+
+Base.show(io::IO, m::MyRecur) = print(io, "MyRecur(", m.cell, ")")
+
+
 
 """
     Dnc(controller, in::Integer, out::Integer, N::Integer, W::Integer, R::Integer)
@@ -59,4 +78,10 @@ end
 Initialise a Differentiable Neural Computer with memory size (N, W) and R read heads.
 
 """
-Dnc(a...; ka...) = Flux.Recur(DNCCell(a...; ka...))
+Dnc(a...; ka...) = MyRecur(DNCCell(a...; ka...))
+
+function MyLSTM(batchsize, a...; ka...)
+    cell = LSTMCell(a..., ka...)
+    h = reshape.(repeat.(hidden(cell), batchsize), :, batchsize)
+    MyRecur(cell, h)
+end

@@ -95,7 +95,7 @@ const _EPSILON = 1f-6
 - `a`: (N x B) tensor
 
 """
-function  allocationweighting(u::AbstractMatrix; eps::AbstractFloat=_EPSILON)
+function  allocationweighting(u::T; eps::AbstractFloat=_EPSILON) where T<:AbstractMatrix
     u = eps .+ (1-eps) .* u
     ϕ = [sortperm(u[:, i]) for i in 1:size(u, 2)]
     ϕ = reshape(vcat(ϕ...), size(u))
@@ -106,7 +106,7 @@ function  allocationweighting(u::AbstractMatrix; eps::AbstractFloat=_EPSILON)
     prodsortedusage = cumprodexclusive(sortedusage;dims=1)
     sortedalloc = (1 .- sortedusage) .* prodsortedusage
     a = sortedalloc[ϕ]
-    a
+    a::T
 end
 
 using Zygote: @adjoint
