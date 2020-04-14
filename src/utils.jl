@@ -1,9 +1,59 @@
 import Flux: softmax
 using LinearAlgebra
 
+mynorm(itr) = sqrt(sum(x->x^2, itr))
 
-cosinesim(u, v) = dot(u, v)/(norm(u)*norm(v))
+cosinesim(u, v) = dot(u, v)/(mynorm(u)*mynorm(v))
 
+weightedcosinesim(u, v, β) = cosinesim(u, v) * β
+
+"""
+cumprodexclusive(arr::AbstractArray) 
+Exclusive cumulative product
+
+# Examples
+```jldoctest
+julia> DNC.cumprodexclusive([1, 2, 3, 4])
+4-element Array{Float64,1}:
+1.0
+1.0
+2.0
+6.0
+```
+"""
+cumprodexclusive(arr::AbstractArray; dims=1) = cumprod(arr; dims=dims) ./ arr
+
+import Base.lastindex
+
+Base.lastindex(b::Zygote.Buffer) = Base.lastindex(b.data)
+Base.lastindex(b::Zygote.Buffer, d) = Base.lastindex(b.data, d)
+
+function mysoftmax!(out::Zygote.Buffer{T}, xs::AbstractVecOrMat{T}) where {T}
+    @inbounds for j = 1:size(xs, 2)
+        # First, store column-wise maximum in the last element of `out`
+        out[end, j] = xs[end, j]
+        @inbounds for i = 1:(size(xs, 1) - 1)
+            out[end, j] = max(out[end, j], xs[i, j])
+        end
+
+        # Subtract the column-wise maximums to normalize, take exp()
+        # out .= exp(xs .- out[end, :])
+        @inbounds for i = 1:size(out, 1)
+            out[i, j] = exp(xs[i, j] - out[end, j])
+        end
+
+        # Normalize by sum of the entire thing
+        # out ./= sum(out, 1)
+        s = T(0)
+        @inbounds for i = 1:size(out, 1)
+            s += out[i, j]
+        end
+        @inbounds for i = 1:size(out, 1)
+            out[i, j] /= s
+        end
+    end
+    return out
+end
 weightedsoftmax(xs, weight) = softmax(xs.*weight)
 
 oneplus(x) = 1 + log(1+exp(x))
@@ -11,8 +61,14 @@ oneplus(x) = 1 + log(1+exp(x))
 inputsize(X::Int, R::Int, W::Int) = X + R * W
 outputsize(R::Int, N::Int, W::Int, X::Int, Y::Int) = W*R + 3W + 5R +3 + Y
 
-function calcoutput(v, r, Wr)
-    return v .+ Wr*r
+
+function calcoutput(v::AbstractArray{T, 2}, r::AbstractArray{T, 2}, Wr::AbstractArray{T, 3}) where T
+    Y, _, B = size(Wr)
+    out = Zygote.Buffer(v, T, (Y, B))
+    @views for b in 1:B
+        out[:, b] = v[:, b] .+ Wr[:, :, b]*r[:, b]
+    end
+    copy(out)
 end
 
 
@@ -20,7 +76,7 @@ function inputmappings(numinputs,R, W)
     lin(outsize) = Dense(numinputs, outsize)
     function lin(firstdim, seconddim)
         transformed  = Dense(numinputs, firstdim * seconddim)
-        Chain(transformed, x-> reshape(x, firstdim, seconddim))
+        Chain(transformed, x-> reshape(x, firstdim, seconddim, :))
     end
     (v = lin(W),
     ê = lin(W),
