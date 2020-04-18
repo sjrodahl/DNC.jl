@@ -108,6 +108,7 @@ function Base.iterate(d::RepeatCopyBatchLoader, i=0)
     return ((batchobsmatrix, batchtargetmatrix, batchmaskmatrix), nexti)
 end
     
+Base.length(d::RepeatCopyBatchLoader) = length(d.dataloader)
 
 
 function pad(arr::AbstractArray{T, 2}, dims::Integer...; left=false, padval=zero(T)) where T
