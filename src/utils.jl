@@ -1,11 +1,37 @@
 import Flux: softmax
 using LinearAlgebra
+using TensorCast
 
-mynorm(itr) = sqrt(sum(x->x^2, itr))
 
-cosinesim(u, v) = dot(u, v)/(mynorm(u)*mynorm(v))
+"""
+    mysoftmax(a)
 
-weightedcosinesim(u, v, β) = cosinesim(u, v) * β
+Numerically stable method to calculate the softmax columnwise of a 3D tensor
+"""
+function mysoftmax(a)
+    # Subtract the maximum value for numerical stability
+    @cast submax[i, j, k] := a[i, j, k] - @reduce [_, j, k] := maximum(i) a[i, j, k]
+    @cast r[i, j, k] := exp(submax[i, j, k]) / @reduce [_, j, k] := sum(i) exp(submax[i, j, k])
+end
+
+"""
+    weightedcosinesim(a, b, β)
+
+Compute the cosine similarity between the columns of `a` and rows of `b` weighted by `β`.
+
+Weighted cosine similarity is defined as
+
+```
+    (dot(a, b) / ||a||*||b||) * β
+```
+
+"""
+function weightedcosinesim(a, b, β)
+    @reduce similarity[i, j, k] := sum(s) a[s, j, k] * b[i, s, k] /
+        sqrt( @reduce [_, j, k] := sum(s') a[s', j, k]^2) /
+        sqrt( @reduce [i, _, k] := sum(s'') b[i, s'', k]^2)
+    @cast weighted[i, j, k] := similarity[i, j, k] * β[j, k]
+end
 
 """
 cumprodexclusive(arr::AbstractArray) 
@@ -27,34 +53,6 @@ import Base.lastindex
 
 Base.lastindex(b::Zygote.Buffer) = Base.lastindex(b.data)
 Base.lastindex(b::Zygote.Buffer, d) = Base.lastindex(b.data, d)
-
-function mysoftmax!(out::Zygote.Buffer{T}, xs::AbstractVecOrMat{T}) where {T}
-    @inbounds for j = 1:size(xs, 2)
-        # First, store column-wise maximum in the last element of `out`
-        out[end, j] = xs[end, j]
-        @inbounds for i = 1:(size(xs, 1) - 1)
-            out[end, j] = max(out[end, j], xs[i, j])
-        end
-
-        # Subtract the column-wise maximums to normalize, take exp()
-        # out .= exp(xs .- out[end, :])
-        @inbounds for i = 1:size(out, 1)
-            out[i, j] = exp(xs[i, j] - out[end, j])
-        end
-
-        # Normalize by sum of the entire thing
-        # out ./= sum(out, 1)
-        s = T(0)
-        @inbounds for i = 1:size(out, 1)
-            s += out[i, j]
-        end
-        @inbounds for i = 1:size(out, 1)
-            out[i, j] /= s
-        end
-    end
-    return out
-end
-weightedsoftmax(xs, weight) = softmax(xs.*weight)
 
 oneplus(x) = 1 + log(1+exp(x))
 

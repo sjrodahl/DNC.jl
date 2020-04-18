@@ -1,27 +1,9 @@
 using Base: cumprod
 using Flux: param
 using Zygote: Buffer
+using TensorCast
 
 
-function _pairwise!(r::Zygote.Buffer,
-                    metric::Function,
-                    col::AbstractArray{T, 3},
-                    row::AbstractArray{T, 3}, β::AbstractArray{T, 2}) where {T, S}
-    nrow = size(row, 1)
-    ncol = size(col, 2)
-    batchsize = size(col, 3)
-    size(r) == (nrow, ncol, batchsize) || throw(DimensionMismatch("Incorrect size of r. Expected $((nrow, ncol, batchsize)), got $(size(r))"))
-    @inbounds for k = 1:batchsize
-        @inbounds for j = 1:ncol
-            colj = view(col, :, j, k)
-            @inbounds for i = 1:nrow
-                rowi = view(row, i, :, k)
-                r[i, j, k] = metric(rowi, colj, β[j, k])
-            end
-        end
-    end
-    r
-end
 
 """
     contentaddress(key::AbstractArray{T, 3}, mem::AbstractArray{T, 3}, β::AbstractArray{S, 2}, K=weightedcosinesim) where {T, S}
@@ -36,14 +18,7 @@ Compute the similarity K (default cosine similarity) between all rows of memory 
 """
 
 function contentaddress(key::AbstractArray{T, 3}, mem::AbstractArray{T, 3}, β::AbstractArray{S, 2}, K=weightedcosinesim) where {T, S}
-    wordsize, numreadheads, batchsize = size(key)
-    numloc, _, _ = size(mem)
-    out = Zygote.Buffer(key, eltype(key), (numloc, numreadheads, batchsize))
-    _pairwise!(out, K, key, mem, β)
-    @views for b in 1:batchsize
-        out[:, :, b] = softmax(out[:, :, b]; dims=1)
-    end
-    copy(out)
+    mysoftmax(K(key, mem, β))
 end
 
 """

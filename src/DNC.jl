@@ -3,6 +3,7 @@ module DNC
 using Flux
 using LinearAlgebra
 using Zygote
+using TensorCast
 
 export readweights
 export writeweights
