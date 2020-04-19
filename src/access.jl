@@ -43,8 +43,6 @@ function (ma::MemoryAccess)(inputs)
     readvectors
 end
 
-readmem(M, wr) = M'*wr
-
 function readmem(M::AbstractArray{T, 3}, wr::AbstractArray{T, 3}) where T
     batched_mul(PermutedDimsArray(M, (2, 1, 3)), wr)
 end
