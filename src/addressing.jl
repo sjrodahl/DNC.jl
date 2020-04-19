@@ -1,7 +1,7 @@
 using Base: cumprod
-using Flux: param
 using Zygote: Buffer
 using TensorCast
+using NNlib
 
 
 
@@ -17,8 +17,13 @@ Compute the similarity K (default cosine similarity) between all rows of memory 
 - `β`: (R x B)
 """
 
-function contentaddress(key::AbstractArray{T, 3}, mem::AbstractArray{T, 3}, β::AbstractArray{S, 2}, K=weightedcosinesim) where {T, S}
-    mysoftmax(K(key, mem, β))
+function contentaddress(a::AbstractArray{T, 3}, b::AbstractArray{T, 3}, β::AbstractArray{S, 2}) where {T, S}
+    @reduce den1[j, k] := sum(s) a[s, j, k]^2 
+    @reduce den2[i, k] := sum(s) b[i, s, k]^2 
+    bmm = batched_mul(b, a)
+    @cast similarity[i, j, k] := bmm[i, j, k] / sqrt(den1[j, k] * den2[i, k])
+    @cast weighted[i, j, k] := similarity[i, j, k] * β[j, k]
+    softmax(weighted; dims=1)
 end
 
 """
