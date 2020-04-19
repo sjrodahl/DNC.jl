@@ -11,18 +11,17 @@ rng = MersenneTwister(2345)
     W = 10
     X = 2
     Y = 2
+    outputsize = 10
     inputsize = DNC.inputsize(X, R, W)
-    outputsize = DNC.outputsize(R, N, W, X, Y)
     x = rand(Float32, X, B)
     y = rand(Float32, Y, B)
     controller = Chain(Dense(inputsize, R*W*2, relu),
                        Dense(R*W*2, outputsize, relu))
-    controller2 = LSTM(inputsize, outputsize)
-    dnc1 = Dnc(controller, X, Y, N, W, R, B)
+    dnc1 = Dnc(controller, X, Y, outputsize, N, W, R, B)
     out1 = dnc1(x)
     @test size(out1) == (Y, B)
     @test eltype(out1) == Float32
-    dnc2 = Dnc(controller2, X, Y, N, W, R, B)
+    dnc2 = Dnc(X, Y, outputsize, N, W, R, B)
     out2 = dnc2(x)
     @test size(out2) == (Y, B)
     @test eltype(out2) == Float32
@@ -31,7 +30,8 @@ end
 R, N, W, X, Y, B = 2, 10, 16, 2, 2, 4
 inputsize = DNC.inputsize(X, R, W)
 outputsize = DNC.outputsize(R, N, W, X, Y)
-dnc = Dnc(X, Y, N, W, R, B)
+controllerout = 64+Y
+dnc = Dnc(X, Y, controllerout, N, W, R, B)
 
 function generatedata(in, out, n=100)
     w = rand(rng, Float32, out, in)

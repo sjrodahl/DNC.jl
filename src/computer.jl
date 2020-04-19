@@ -15,21 +15,21 @@ mutable struct DNCCell{C, T, S, M}
     memoryaccess::MemoryAccess{M, T, S}
 end
 
-DNCCell(controller, in::Int, out::Int, N::Int, W::Int, R::Int, B::Int; init=Flux.glorot_uniform) = 
+DNCCell(controller, in::Int, out::Int, controut::Int, N::Int, W::Int, R::Int, B::Int; init=Flux.glorot_uniform) = 
     DNCCell(
         controller,
         zeros(Float32, R*W, B),
         init(out, R*W, B),
         R, W, in, out,
-        MemoryAccess(outputsize(R, N, W, in, out)-out, N, W, R, B))
+        MemoryAccess(controut-out, N, W, R, B))
 
-DNCCell(in::Int, out::Int, N::Int, W::Int, R::Int, B::Int; init=Flux.glorot_uniform) = 
+DNCCell(in::Int, out::Int, controut::Int, N::Int, W::Int, R::Int, B::Int; init=Flux.glorot_uniform) = 
     DNCCell(
-        MyLSTM(B, inputsize(in, R, W), outputsize(R, N, W, in, out)),
+        MyLSTM(B, inputsize(in, R, W), controut),
         zeros(Float32, R*W, B),
         init(out, R*W, B),
         R, W, in, out,
-        MemoryAccess(outputsize(R, N, W, in, out)-out, N, W, R, B))
+        MemoryAccess(controut-out, N, W, R, B))
 
 
 function (m::DNCCell)(h, x)
