@@ -1,4 +1,4 @@
-import Flux: softmax
+import Flux: softmax, identity, σ
 using LinearAlgebra
 using NNlib
 using TensorCast
@@ -34,29 +34,29 @@ end
 
 
 function inputmappings(numinputs,R, W)
-    lin(outsize) = Dense(numinputs, outsize)
-    function lin(firstdim, seconddim)
-        transformed  = Dense(numinputs, firstdim * seconddim)
+    lin(outsize; activation=identity) = Dense(numinputs, outsize, activation)
+    function lin(firstdim, seconddim; activation=identity)
+        transformed  = Dense(numinputs, firstdim * seconddim, activation)
         Chain(transformed, x-> reshape(x, firstdim, seconddim, :))
     end
     (v = lin(W),
-    ê = lin(W),
-    f̂ = lin(R),
-    ĝa = lin(1),
-    ĝw = lin(1),
+    e = lin(W; activation=σ),
+    f = lin(R; activation=σ),
+    ga = lin(1; activation=σ),
+    gw = lin(1; activation=σ),
     readmode = lin(3, R),
     kr = lin(W, R),
-    βr = lin(R),
+    βr = lin(R; activation=oneplus),
     kw = lin(W, 1),
-    βw = lin(1))
+    βw = lin(1; activation=oneplus))
 end
 
 function split_ξ(ξ, transformfuncs)
     v = transformfuncs.v(ξ)
-    ê = transformfuncs.ê(ξ)
-    f̂ = transformfuncs.f̂(ξ)
-    ĝa = transformfuncs.ĝa(ξ)
-    ĝw = transformfuncs.ĝw(ξ)
+    e = transformfuncs.e(ξ)
+    f = transformfuncs.f(ξ)
+    ga = transformfuncs.ga(ξ)
+    gw = transformfuncs.gw(ξ)
     readmode = transformfuncs.readmode(ξ)
     kr = transformfuncs.kr(ξ)
     βr = transformfuncs.βr(ξ)
@@ -64,15 +64,15 @@ function split_ξ(ξ, transformfuncs)
     βw = transformfuncs.βw(ξ)
     return (
         kr = kr,
-        βr = oneplus.(βr),
+        βr = βr,
         kw = kw,
-        βw = oneplus.(βw),
+        βw = βw,
         v = v,
-        e = σ.(ê),
-        f = σ.(f̂),
-        ga = σ.(ĝa),
-        gw = σ.(ĝw),
-        readmode = Flux.softmax(readmode; dims=1) 
+        e = e,
+        f = f,
+        ga = ga,
+        gw = gw,
+        readmode = softmax(readmode; dims=1) 
     )
 end
 
