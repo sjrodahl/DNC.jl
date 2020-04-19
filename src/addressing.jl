@@ -1,5 +1,4 @@
 using Base: cumprod
-using Zygote: Buffer
 using TensorCast
 using NNlib
 
@@ -169,12 +168,7 @@ Location weight for reading the next-written-to location.
 See also: [`backwardweight`](@ref)
 """
 function forwardweight(L::AbstractArray{T, 3}, wr::AbstractArray{T, 3}) where T
-    B = size(L, 3)
-    res = Zygote.Buffer(wr)
-    @views for batch in 1:B
-        res[:, :, batch] =  L[:, :, batch]*wr[:, :, batch]
-    end
-    copy(res)
+    batched_mul(L, wr)
 end
 
 
@@ -189,18 +183,9 @@ Location weight for reading the previous-written-to location.
 See also: [`forwardweight`](@ref)
 """
 function backwardweight(L::AbstractArray{T, 3}, wr::AbstractArray{T, 3}) where T
-    B = size(L, 3)
-    res = Zygote.Buffer(wr)
-    @views for batch in 1:B
-        res[:, :, batch] = L[:, :, batch]'*wr[:, :, batch]
-    end
-    copy(res)
+    batched_mul(PermutedDimsArray(L, (2, 1, 3)), wr)
 end
 
-
-function _readweight(backw, content, forw, readmode)
-    return readmode[1]*backw + readmode[2]*content + readmode[3]*forw
-end
 
 """
     readweigth(backw::AbstractArray::{T, 2},
@@ -219,13 +204,5 @@ readmode is a vector of size 3 summing to 1.
 - (N x R x B) tensor represented each read heads readweights
 """
 function readweight(backw::AbstractArray{T, 3}, cr::AbstractArray{T, 3}, forw::AbstractArray{T, 3}, readmode::AbstractArray{T, 3}) where T
-    out = Zygote.Buffer(cr)
-    R = size(cr, 2)
-    B = size(cr, 3)
-    @views for b in 1:B
-        for r in 1:R
-            out[:, r, b] = _readweight(backw[:, r, b], cr[:, r, b], forw[:, r, b], readmode[:, r, b])
-        end
-    end
-    copy(out)
+    @cast out[n, r, b] := backw[n, r, b]*readmode[1, r, b] + cr[n, r, b]*readmode[2, r, b] + forw[n, r, b] * readmode[3, r, b]
 end
