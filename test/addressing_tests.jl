@@ -31,7 +31,7 @@ inputs = (wr=rand(Float32, N, R, B),
           f=σ.(rand(Float32, R, B)),
           ww=rand(Float32, N, 1, B),
           readmode=rand(Float32, 3, R, B))
-state = State(
+state = DNC.State(
     zeros(Float32, N, N, B),
     zeros(Float32, N, B),
     zeros(Float32, N, B),
@@ -104,7 +104,7 @@ end
     case2 = (wr=wr2, f=f2, ww=ww2)
     u_prev = rand(Float32, N, B)
     u_prev[:, 1] = [1.0f0, 0.0f0, 0.0f0]
-    state2 = State(N, R, B)
+    state2 = DNC.State(N, R, B)
     state2.ww = case2.ww
     state2.wr = case2.wr
     state2.u = u_prev

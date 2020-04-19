@@ -5,11 +5,7 @@ using LinearAlgebra
 using Zygote
 using TensorCast
 
-export readweights
-export writeweights
-export State
 export Dnc
-export DNCCell
 
 
 include("utils.jl")

@@ -57,7 +57,7 @@ allocationwrite = (
 )
 
 
-state = State(
+state = DNC.State(
     # Write history is 1 -> 2 -> 3
     expand([0 0 0;
             1 0 0;
@@ -71,24 +71,24 @@ state = State(
 @testset "Sharp read/write" begin
     @testset "Readweights" begin
         L, wr = state.L, state.wr
-        r1 = readweights(M, contentread, L, wr)
+        r1 = DNC.readweights(M, contentread, L, wr)
         @test eltype(r1) == Float32
         @test round.(r1; digits=5)[:,1] == [1.0, 0, 0]
-        r2 = readweights(M, backwardread, L, wr)
+        r2 = DNC.readweights(M, backwardread, L, wr)
         @test eltype(r2) == Float32
         @test round.(r2; digits=5)[:, 1] == [1.0, 0, 0]
-        r3 = readweights(M, forwardread, L, wr)
+        r3 = DNC.readweights(M, forwardread, L, wr)
         @test eltype(r3) == Float32
         @test round.(r3; digits=5)[:, 1] == [0.0, 0, 1]
     end
     @testset "Writeweights" begin
         ww, wr, prev_u = state.ww, state.wr, state.u
         u = DNC.usage(prev_u, ww, wr, contentwrite.f)
-        ww1 = writeweights(M, contentwrite, u)
+        ww1 = DNC.writeweights(M, contentwrite, u)
         @test eltype(ww1) == Float32
         @test round.(ww1; digits=3)[:, 1, 1] == [1.0, 0.0, 0.0]
         u = DNC.usage(prev_u, ww, wr, allocationwrite.f)
-        ww2 = writeweights(M, allocationwrite, u)
+        ww2 = DNC.writeweights(M, allocationwrite, u)
         @test eltype(ww2) == Float32
         @test round.(ww2; digits=3)[:, 1, 1] == [0.0, 0.0, 1.0]
     end
@@ -100,7 +100,7 @@ end
     new = DNC.eraseandadd(M, reshape([0.0f0, 0, 1], N, 1, B), ones(Float32, 3, B), 2*ones(Float32, W, B))
     @test eltype(new) == Float32
     @test new[3,:, 1] == [2.0, 2.0, 2.0]
-    ww2 = round.(writeweights(M, allocationwrite, u); digits=3)
+    ww2 = round.(DNC.writeweights(M, allocationwrite, u); digits=3)
     new2 = DNC.eraseandadd(M, ww2, allocationwrite[:e], allocationwrite[:v]) 
     @test new2[3,:, 1] == allocationwrite[:v][:, 1]
 end
@@ -129,13 +129,13 @@ prev_wr = rand(rng, Float32, N, R, B)
 inputsraw = rand(rng, Float32, insize, B)
 mappings = DNC.inputmappings(20, R, W)
 inputs = DNC.split_ξ(inputsraw, mappings)
-state = State(N, R, B)
+state = DNC.State(N, R, B)
 
 @testset "Batch training" begin
-    r = readweights(M, inputs, L, prev_wr)
+    r = DNC.readweights(M, inputs, L, prev_wr)
     @test size(r) == (N, R, B)
     u = DNC.usage(state.u, state.ww, state.wr, inputs.f)
-    w = writeweights(M, inputs, u)
+    w = DNC.writeweights(M, inputs, u)
     @test size(w) == (N, 1, B)
     newM = DNC.eraseandadd(M, w, inputs.e, inputs.v)
     @test size(newM) == (N, W, B)
