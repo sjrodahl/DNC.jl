@@ -32,6 +32,7 @@ inputsize = DNC.inputsize(X, R, W)
 outputsize = DNC.outputsize(R, N, W, X, Y)
 controllerout = 64+Y
 dnc = Dnc(X, Y, controllerout, N, W, R, B)
+@show(dnc)
 
 function generatedata(in, out, n=100)
     w = rand(rng, Float32, out, in)
