@@ -1,27 +1,8 @@
 using Base: cumprod
-using Flux: param
-using Zygote: Buffer
+using TensorCast
+using NNlib
 
 
-function _pairwise!(r::Zygote.Buffer,
-                    metric::Function,
-                    col::AbstractArray{T, 3},
-                    row::AbstractArray{T, 3}, β::AbstractArray{T, 2}) where {T, S}
-    nrow = size(row, 1)
-    ncol = size(col, 2)
-    batchsize = size(col, 3)
-    size(r) == (nrow, ncol, batchsize) || throw(DimensionMismatch("Incorrect size of r. Expected $((nrow, ncol, batchsize)), got $(size(r))"))
-    @inbounds for k = 1:batchsize
-        @inbounds for j = 1:ncol
-            colj = view(col, :, j, k)
-            @inbounds for i = 1:nrow
-                rowi = view(row, i, :, k)
-                r[i, j, k] = metric(rowi, colj, β[j, k])
-            end
-        end
-    end
-    r
-end
 
 """
     contentaddress(key::AbstractArray{T, 3}, mem::AbstractArray{T, 3}, β::AbstractArray{S, 2}, K=weightedcosinesim) where {T, S}
@@ -35,15 +16,13 @@ Compute the similarity K (default cosine similarity) between all rows of memory 
 - `β`: (R x B)
 """
 
-function contentaddress(key::AbstractArray{T, 3}, mem::AbstractArray{T, 3}, β::AbstractArray{S, 2}, K=weightedcosinesim) where {T, S}
-    wordsize, numreadheads, batchsize = size(key)
-    numloc, _, _ = size(mem)
-    out = Zygote.Buffer(key, eltype(key), (numloc, numreadheads, batchsize))
-    _pairwise!(out, K, key, mem, β)
-    @views for b in 1:batchsize
-        out[:, :, b] = softmax(out[:, :, b]; dims=1)
-    end
-    copy(out)
+function contentaddress(a::AbstractArray{T, 3}, b::AbstractArray{T, 3}, β::AbstractArray{S, 2}) where {T, S}
+    @reduce den1[j, k] := sum(s) a[s, j, k]^2 
+    @reduce den2[i, k] := sum(s) b[i, s, k]^2 
+    bmm = batched_mul(b, a)
+    @cast similarity[i, j, k] := bmm[i, j, k] / sqrt(den1[j, k] * den2[i, k])
+    @cast weighted[i, j, k] := similarity[i, j, k] * β[j, k]
+    softmax(weighted; dims=1)
 end
 
 """
@@ -95,7 +74,7 @@ const _EPSILON = 1f-6
 - `a`: (N x B) tensor
 
 """
-function  allocationweighting(u::AbstractMatrix; eps::AbstractFloat=_EPSILON)
+function  allocationweighting(u::T; eps::AbstractFloat=_EPSILON) where T<:AbstractMatrix
     u = eps .+ (1-eps) .* u
     ϕ = [sortperm(u[:, i]) for i in 1:size(u, 2)]
     ϕ = reshape(vcat(ϕ...), size(u))
@@ -106,7 +85,7 @@ function  allocationweighting(u::AbstractMatrix; eps::AbstractFloat=_EPSILON)
     prodsortedusage = cumprodexclusive(sortedusage;dims=1)
     sortedalloc = (1 .- sortedusage) .* prodsortedusage
     a = sortedalloc[ϕ]
-    a
+    a::T
 end
 
 using Zygote: @adjoint
@@ -189,12 +168,7 @@ Location weight for reading the next-written-to location.
 See also: [`backwardweight`](@ref)
 """
 function forwardweight(L::AbstractArray{T, 3}, wr::AbstractArray{T, 3}) where T
-    B = size(L, 3)
-    res = Zygote.Buffer(wr)
-    @views for batch in 1:B
-        res[:, :, batch] =  L[:, :, batch]*wr[:, :, batch]
-    end
-    copy(res)
+    batched_mul(L, wr)
 end
 
 
@@ -209,18 +183,9 @@ Location weight for reading the previous-written-to location.
 See also: [`forwardweight`](@ref)
 """
 function backwardweight(L::AbstractArray{T, 3}, wr::AbstractArray{T, 3}) where T
-    B = size(L, 3)
-    res = Zygote.Buffer(wr)
-    @views for batch in 1:B
-        res[:, :, batch] = L[:, :, batch]'*wr[:, :, batch]
-    end
-    copy(res)
+    batched_mul(PermutedDimsArray(L, (2, 1, 3)), wr)
 end
 
-
-function _readweight(backw, content, forw, readmode)
-    return readmode[1]*backw + readmode[2]*content + readmode[3]*forw
-end
 
 """
     readweigth(backw::AbstractArray::{T, 2},
@@ -239,13 +204,5 @@ readmode is a vector of size 3 summing to 1.
 - (N x R x B) tensor represented each read heads readweights
 """
 function readweight(backw::AbstractArray{T, 3}, cr::AbstractArray{T, 3}, forw::AbstractArray{T, 3}, readmode::AbstractArray{T, 3}) where T
-    out = Zygote.Buffer(cr)
-    R = size(cr, 2)
-    B = size(cr, 3)
-    @views for b in 1:B
-        for r in 1:R
-            out[:, r, b] = _readweight(backw[:, r, b], cr[:, r, b], forw[:, r, b], readmode[:, r, b])
-        end
-    end
-    copy(out)
+    @cast out[n, r, b] := backw[n, r, b]*readmode[1, r, b] + cr[n, r, b]*readmode[2, r, b] + forw[n, r, b] * readmode[3, r, b]
 end

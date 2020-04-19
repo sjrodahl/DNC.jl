@@ -15,43 +15,20 @@ xs = sort(Float32.([-1000, -10.0, -1.5, 0.0, 0.1, 1.0, 15.0]))
     end
 end
 
-@testset "weighted softmax" begin
-    # Sharpener of 1 does not affect result (softmax is from NNlib package)
-    @test DNC.weightedsoftmax([1.0, 2.0], 1) == softmax([1.0, 2.0])
-    # Test for correct results
-    @testset "loop" for
-        xs in [[0.0, 1.0], [1.0, 2.0], [0.5, -0.6], [-1.3, -5.0]],
-            β in [1 , 2, 10]
-        @test DNC.weightedsoftmax(xs, β)[1] ≈ exp(xs[1]*β)/(exp(xs[1]*β)+exp(xs[2]*β))
-        @test DNC.weightedsoftmax(xs, β)[2] ≈ exp(xs[2]*β)/(exp(xs[1]*β)+exp(xs[2]*β))
-    end
-    # Test for Float32 type stability
-    @test eltype(DNC.weightedsoftmax([0.f0, 1.f0], 2.f0)) == Float32
-end
-
-@testset "Cosine similarity" begin
-    a, b = ([1.f0, 1.f0], [0.f0, 0.5f0])
-    @test DNC.cosinesim([1, 2], [1, 2]) ≈ 1
-    @test DNC.cosinesim([1, 1], [0,1]) ≈ cos(π/4)
-    @test DNC.cosinesim([-1, 1], [1, 0]) ≈ cos(3π/4)
-    @test DNC.cosinesim([1, 0, 0], [0, 1, 0]) == 0
-    @test eltype(DNC.cosinesim(a, b)) == Float32
-end
-
 @testset "Calc output" begin
     outsize = 5
-    N, W, R = 3, 5, 2
-    readvectors = rand(rng, Float32, W*R)
-    Wr = rand(rng, Float32, outsize, R*W)
-    v = rand(rng, Float32, outsize)
+    N, W, R, B = 3, 5, 2, 1
+    readvectors = rand(rng, Float32, W*R, B)
+    Wr = rand(rng, Float32, outsize, R*W, B)
+    v = rand(rng, Float32, outsize, B)
     res = DNC.calcoutput(v, readvectors, Wr)
-    @test size(res) == (outsize,)
+    @test size(res) == (outsize, B)
     @test eltype(res) == Float32
 end
 
 @testset "Split ξ $(R) read head" for R in 1:2
-    W = 5
-    ξ = rand(rng, Float32, 10)
+    W, B = 5, 1
+    ξ = rand(rng, Float32, 10, B)
     transforms = DNC.inputmappings(10, R, W)
     inputs = DNC.split_ξ(ξ, transforms)
 
@@ -60,16 +37,16 @@ end
     end
 
     @testset "Dimensions" begin
-        @test size(inputs.kr) == (W, R, 1)
-        @test size(inputs.kw) == (W, 1, 1)
-        @test size(inputs.βr) == (R,)
-        @test size(inputs.βw) == (1,)
-        @test size(inputs.ga) == (1,)
-        @test size(inputs.gw) == (1,)
-        @test size(inputs.v) == (W,)
-        @test size(inputs.e) == (W,)
-        @test size(inputs.f) == (R,)
-        @test size(inputs.readmode) == (3, R, 1)
+        @test size(inputs.kr) == (W, R, B)
+        @test size(inputs.kw) == (W, 1, B)
+        @test size(inputs.βr) == (R,B)
+        @test size(inputs.βw) == (1,B)
+        @test size(inputs.ga) == (1,B)
+        @test size(inputs.gw) == (1,B)
+        @test size(inputs.v) == (W,B)
+        @test size(inputs.e) == (W,B)
+        @test size(inputs.f) == (R,B)
+        @test size(inputs.readmode) == (3, R, B)
     end
 
     @testset "Domain" begin
@@ -97,23 +74,6 @@ end
             tot
         end
         @test !isnothing(g)
-    end
-
-    @testset "Batch training" begin
-        B = 2
-        ξ = rand(Float32, 10, B)
-        inputs = DNC.split_ξ(ξ, transforms)
-
-        @test size(inputs.kr) == (W, R, B)
-        @test size(inputs.kw) == (W, 1, B)
-        @test size(inputs.βr) == (R, B)
-        @test size(inputs.βw) == (1, B)
-        @test size(inputs.ga) == (1, B)
-        @test size(inputs.gw) == (1, B)
-        @test size(inputs.v) == (W, B)
-        @test size(inputs.e) == (W, B)
-        @test size(inputs.f) == (R, B)
-        @test size(inputs.readmode) == (3, R, B)
     end
 end
 

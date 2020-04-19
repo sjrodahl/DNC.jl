@@ -62,7 +62,7 @@ state = State(
     expand([0 0 0;
             1 0 0;
             0 1 0], N, N, B),
-    zeros(N, B),
+    zeros(Float32, N, B),
     expand([1, 1, 0], N, B), # 3 is (artificially) set to unused/ free to be allocated
     expand([0, 1, 0], N, 1, B),
     expand([0, 1, 0], N, R, B) # last read was 2, so forward points to 3, back to 1
@@ -95,8 +95,9 @@ state = State(
 end
 
 @testset "Erase and add" begin
+    B = 1
     u = DNC.usage(state.u, state.ww, state.wr, allocationwrite.f)
-    new = DNC.eraseandadd(M, [0.0f0, 0, 1], ones(Float32, 3), [2.0f0, 2.0f0, 2.0f0])
+    new = DNC.eraseandadd(M, reshape([0.0f0, 0, 1], N, 1, B), ones(Float32, 3, B), 2*ones(Float32, W, B))
     @test eltype(new) == Float32
     @test new[3,:, 1] == [2.0, 2.0, 2.0]
     ww2 = round.(writeweights(M, allocationwrite, u); digits=3)
