@@ -46,19 +46,17 @@ end
 readmem(M, wr) = M'*wr
 
 function readmem(M::AbstractArray{T, 3}, wr::AbstractArray{T, 3}) where T
-    N, W, B = size(M)
-    R = size(wr, 2)
-    readvec = Zygote.Buffer(wr, T, (W, R, B))
-    @views for b in 1:B
-        readvec[:, :, b] = M[:, :, b]' * wr[:, :, b]
-    end
-    copy(readvec)
+    batched_mul(PermutedDimsArray(M, (2, 1, 3)), wr)
 end
 
 """
     readweights(M, inputs, L, prev_wr)
 
-Fuzzy read the memory M. 
+# Arguments
+- `M`: (N, W, B) memory
+- `inputs`: Named Tuple of controller parameters
+- `L`: (N, N, B) link matrix
+- `prev_wr`: (N, R, B) last iterations read weights
 """
 function readweights(M, inputs, L, prev_wr)
     k, β, readmode= inputs.kr, inputs.βr, inputs.readmode
@@ -98,15 +96,11 @@ end
 @adjoint update_state_after_read!(state, wr) =
     update_state_after_read!(state, wr), _ -> nothing
 
-eraseandadd(M, ww, e, a) = M .* (ones(Float32, size(M)) - ww * e') + ww * a'
-
-
 function eraseandadd(M::AbstractArray{T, 3}, ww::AbstractArray{T, 3}, e::AbstractArray{T,2}, a::AbstractArray{T, 2}) where T
-    newM = Zygote.Buffer(M)
-    B = size(M, 3)
-    @views for b in 1:B
-        newM[:, :, b] = eraseandadd(M[:, :, b], ww[:, :, b], e[:, b], a[:, b])
-    end
-    copy(newM)
+    e = reshape(e, size(e, 1), 1, size(e, 2))
+    a = reshape(a, size(a, 1), 1, size(a, 2))
+    erasematrix = batched_mul(ww, PermutedDimsArray(e, (2, 1, 3)))
+    addmatrix = batched_mul(ww, PermutedDimsArray(a, (2, 1, 3)))
+    @cast newM[i, j, k] := M[i, j, k] * (1-erasematrix[i, j, k]) + addmatrix[i, j, k]
 end
 
