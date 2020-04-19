@@ -15,11 +15,6 @@ xs = sort(Float32.([-1000, -10.0, -1.5, 0.0, 0.1, 1.0, 15.0]))
     end
 end
 
-@testset "My softmax" begin
-    u = rand(Float32, 3, 4, 5)
-    @test all(isapprox.(softmax(u), DNC.mysoftmax(u)))
-end
-
 @testset "Calc output" begin
     outsize = 5
     N, W, R, B = 3, 5, 2, 1

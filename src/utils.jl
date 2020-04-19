@@ -1,37 +1,8 @@
 import Flux: softmax
 using LinearAlgebra
+using NNlib
 using TensorCast
 
-
-"""
-    mysoftmax(a)
-
-Numerically stable method to calculate the softmax columnwise of a 3D tensor
-"""
-function mysoftmax(a)
-    # Subtract the maximum value for numerical stability
-    @cast submax[i, j, k] := a[i, j, k] - @reduce [_, j, k] := maximum(i) a[i, j, k]
-    @cast r[i, j, k] := exp(submax[i, j, k]) / @reduce [_, j, k] := sum(i) exp(submax[i, j, k])
-end
-
-"""
-    weightedcosinesim(a, b, β)
-
-Compute the cosine similarity between the columns of `a` and rows of `b` weighted by `β`.
-
-Weighted cosine similarity is defined as
-
-```
-    (dot(a, b) / ||a||*||b||) * β
-```
-
-"""
-function weightedcosinesim(a, b, β)
-    @reduce similarity[i, j, k] := sum(s) a[s, j, k] * b[i, s, k] /
-        sqrt( @reduce [_, j, k] := sum(s') a[s', j, k]^2) /
-        sqrt( @reduce [i, _, k] := sum(s'') b[i, s'', k]^2)
-    @cast weighted[i, j, k] := similarity[i, j, k] * β[j, k]
-end
 
 """
 cumprodexclusive(arr::AbstractArray) 
@@ -49,11 +20,6 @@ julia> DNC.cumprodexclusive([1, 2, 3, 4])
 """
 cumprodexclusive(arr::AbstractArray; dims=1) = cumprod(arr; dims=dims) ./ arr
 
-import Base.lastindex
-
-Base.lastindex(b::Zygote.Buffer) = Base.lastindex(b.data)
-Base.lastindex(b::Zygote.Buffer, d) = Base.lastindex(b.data, d)
-
 oneplus(x) = 1 + log(1+exp(x))
 
 inputsize(X::Int, R::Int, W::Int) = X + R * W
@@ -61,12 +27,9 @@ outputsize(R::Int, N::Int, W::Int, X::Int, Y::Int) = W*R + 3W + 5R +3 + Y
 
 
 function calcoutput(v::AbstractArray{T, 2}, r::AbstractArray{T, 2}, Wr::AbstractArray{T, 3}) where T
-    Y, _, B = size(Wr)
-    out = Zygote.Buffer(v, T, (Y, B))
-    @views for b in 1:B
-        out[:, b] = v[:, b] .+ Wr[:, :, b]*r[:, b]
-    end
-    copy(out)
+    r = reshape(r, size(r, 1), 1, size(r, 2))
+    memoryoutput = dropdims(batched_mul(Wr, r); dims=2)
+    v .+ memoryoutput
 end
 
 
