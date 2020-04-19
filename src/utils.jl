@@ -32,6 +32,21 @@ function calcoutput(v::AbstractArray{T, 2}, r::AbstractArray{T, 2}, Wr::Abstract
     v .+ memoryoutput
 end
 
+"""
+    cumprodexclusive(arr::AbstractArray) 
+Exclusive cumulative product
+
+# Examples
+```jldoctest
+julia> DNC.cumprodexclusive([1, 2, 3, 4])
+4-element Array{Float64,1}:
+1.0
+1.0
+2.0
+6.0
+```
+"""
+cumprodexclusive(arr::AbstractArray) = cumprod(arr) ./ arr
 
 function inputmappings(numinputs,R, W)
     lin(outsize; activation=identity) = Dense(numinputs, outsize, activation)
