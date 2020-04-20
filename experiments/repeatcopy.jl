@@ -240,6 +240,8 @@ using Zygote: Params, gradient
 using Dates
 
 function mytrain!(loss, ps, data, opt; cb=()->())
+    niter = length(data)
+    batchsize = data.dataloader.batchsize
     ps = Params(ps)
     cb = runall(cb)
     for d in data
