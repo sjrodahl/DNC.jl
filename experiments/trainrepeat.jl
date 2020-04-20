@@ -13,8 +13,9 @@ maxlength = 2
 X = nbits+2
 Y = nbits+1
 N, W, R = 16, 16, 2
+controllerout = 64+Y
 
-niter = 10000
+niter = 200
 batchsize = 16
 seqs = [RepeatCopy(;
             nbits=nbits,
@@ -23,43 +24,19 @@ seqs = [RepeatCopy(;
             maxlength=maxlength)
         for i in 1:(niter*batchsize)]
 
-batcheddata = DataLoader(seqs, batchsize=batchsize)
+batcheddata = RepeatCopyBatchLoader(seqs, batchsize=batchsize)
 
-model = Dnc(X, Y, N, W, R)
 
-loss(rc; printoutput=false) = loss(model, rc; printoutput=printoutput)
+model = Dnc(X, Y, controllerout, N, W, R, batchsize)
 
-using BSON: @save
-using Flux: @progress, throttle
-using Flux.Optimise: update!, runall, StopException
-using Zygote: Params, gradient
-using Dates
-
-function mytrain!(loss, ps, data, opt; cb=()->())
-    ps = Params(ps)
-    cb = runall(cb)
-    @progress for d in data
-        try
-            gs = gradient(ps) do
-                loss(d)
-            end
-            update!(opt, ps, gs)
-            cb()
-        catch ex
-            if ex isa StopException
-                break
-            else
-                rethrow(ex)
-            end
-        end
-    end
-    @save "$(today())-dnc-$niter-$batchsize.bson" model
-end
+loss(rc::RepeatCopy; printoutput=false) = loss(model, rc; printoutput=printoutput)
+loss(batch::Tuple; printoutput=false) = loss(model, batch...; printoutput=printoutput)
 
 opt = RMSProp(1e-3)
-evalcb = throttle(10) do
-    idx = rand(1:length(seqs))
-    loss(seqs[idx]; printoutput=true)
+
+evalcb = ThrottleIterations(100) do
+    idx = rand(1:(length(seqs)-batchsize))
+    loss(Base.iterate(batcheddata, idx)[1]; printoutput=true)
 end
 
-mytrain!(loss, params(model), batcheddata, opt; cb=evalcb)
+@time mytrain!(loss, Flux.params(model), batcheddata, opt; cb=evalcb)
