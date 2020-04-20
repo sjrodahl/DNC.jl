@@ -1,124 +1,144 @@
 using Zygote
 
-N = 3
-W = 3
+N, W, R, B= 3, 3, 1, 1
 
-M = Matrix(
-    [1.0 2 3;
-    -1 -2  -3;
-    1 -2 3])
+
+function expand(arr::AbstractVecOrMat, dims...)
+    res = rand(Float32, dims...)
+    res[:, :, 1] = Float32.(arr)
+    res
+end
+
+M = expand([1 2 3;
+           -1 -2 -3;
+           1 -2 3], N, N, B)
 
 # Content-based read
 contentread = (
-    kr = Matrix([1.0 2.0 0.0]'),
-    βr = [100.0],
-    f = [1.0],
-    readmode = Matrix([0.0 1.0 0.0]')
+    kr = expand([1, 2, 0], W, R, B),
+    βr = expand([100], R, B),
+    f = expand([1], R, B),
+    readmode = expand([0, 1, 0], (3, R, B))
     )
 
 # Temporal linkage based read
 backwardread = (
-    kr = Matrix([-1.0 -2.0 -5.0]'),
-    βr = 100.0,
-    f = 0.0,
-    readmode = Matrix([1.0 0.0 0.0]')
+    kr =expand([-1, -2, -5], W, R, B),
+    βr = expand([100], R, B),
+    f = expand([0], R, B),
+    readmode = expand([1, 0, 0], 3, R, B)
     )
 
 forwardread = (
-    kr = Matrix([-1.0 -2.0 -5.0]'),
-    βr = 100.0,
-    f = 0.0,
-    readmode = Matrix([0.0 0.0 1.0]')
+    kr = expand([-1,-2,-5], W, R, B),
+    βr = expand([100], R, B),
+    f = expand([0], R, B),
+    readmode = expand([0,0,1], 3, R, B)
     )
 
 contentwrite = (
-    kw = Matrix([1.0 2 0]'),
-    βw = 10.0,
-    e = [1.0, 1.0, 1.0],
-    v = [10.0, 20.0, 30.0],
-    ga = 0.0,
-    gw = 1.0,
-    f = 1.0
+    kw = expand([1,2, 0], W, R, B),
+    βw = expand([10], R, B),
+    e = expand([1, 1, 1], W, B),
+    v = expand([10, 20, 30], W, B),
+    ga = expand([0], 1, B),
+    gw = expand([1], 1, B),
+    f = expand([1], R, B)
 )
 
 allocationwrite = (
-    kw = Matrix([1.0 1.0 1.0]'),
-    βw = 1.0,
-    e = [1.0, 1.0, 1.0],
-    v = [10.0, 20.0, 30.0],
-    ga =1.0,
-    gw =1.0,
-    f = 1.0
+    kw = expand([1,1,1], W, R, B),
+    βw = expand([1], R, B),
+    e = expand([1, 1, 1], W, B),
+    v = expand([10, 20, 30], W, B),
+    ga =expand([1], 1, B),
+    gw =expand([1], 1, B),
+    f = expand([1], R, B)
 )
 
 
-state = State(
+state = DNC.State(
     # Write history is 1 -> 2 -> 3
-    [0.0 0.0 0.0;
-         1.0 0.0 0.0;
-         0.0 1.0 0.0],
-    zeros(3),
-    [1.0, 1.0, 0.0], # 3 is (artificially) set to unused/ free to be allocated
-    [0.0, 1.0, 0],
-    Matrix([0.0 1.0 0.0]') # last read was 2, so forward points to 3, back to 1
+    expand([0 0 0;
+            1 0 0;
+            0 1 0], N, N, B),
+    zeros(Float32, N, B),
+    expand([1, 1, 0], N, B), # 3 is (artificially) set to unused/ free to be allocated
+    expand([0, 1, 0], N, 1, B),
+    expand([0, 1, 0], N, R, B) # last read was 2, so forward points to 3, back to 1
 )
 
 @testset "Sharp read/write" begin
     @testset "Readweights" begin
         L, wr = state.L, state.wr
-        r1 = readweights(M, contentread, L, wr)
-        @test round.(r1; digits=5) == Matrix([1.0 0 0]')
-        r2 = readweights(M, backwardread, L, wr)
-        @test round.(r2; digits=5) == Matrix([1.0 0 0]')
-        r3 = readweights(M, forwardread, L, wr)
-        @test round.(r3; digits=5) == Matrix([0.0 0 1]')
+        r1 = DNC.readweights(M, contentread, L, wr)
+        @test eltype(r1) == Float32
+        @test round.(r1; digits=5)[:,1] == [1.0, 0, 0]
+        r2 = DNC.readweights(M, backwardread, L, wr)
+        @test eltype(r2) == Float32
+        @test round.(r2; digits=5)[:, 1] == [1.0, 0, 0]
+        r3 = DNC.readweights(M, forwardread, L, wr)
+        @test eltype(r3) == Float32
+        @test round.(r3; digits=5)[:, 1] == [0.0, 0, 1]
     end
     @testset "Writeweights" begin
-        ww, wr, u = state.ww, state.wr, state.u
-        ww1 = writeweights(M, contentwrite, ww, wr, u)
-        @test round.(ww1; digits=3) == Matrix([1.0 0.0 0.0]')
-        ww2 = writeweights(M, allocationwrite, ww, wr, u)
-        @test round.(ww2; digits=3) == Matrix([0.0 0.0 1.0]')
-    end
-end
-
-@testset "Gradients" begin
-    @testset "Read gradient" begin
-        L, wr = state.L, state.wr
-        r1 = readweights(M, contentread, L, wr)
-        function f(M, contentread, L, wr)
-            sum(readweights(M, contentread, L, wr))
-        end
-        readweights_g = gradient(f, M, contentread, L, wr)
-        @test true
+        ww, wr, prev_u = state.ww, state.wr, state.u
+        u = DNC.usage(prev_u, ww, wr, contentwrite.f)
+        ww1 = DNC.writeweights(M, contentwrite, u)
+        @test eltype(ww1) == Float32
+        @test round.(ww1; digits=3)[:, 1, 1] == [1.0, 0.0, 0.0]
+        u = DNC.usage(prev_u, ww, wr, allocationwrite.f)
+        ww2 = DNC.writeweights(M, allocationwrite, u)
+        @test eltype(ww2) == Float32
+        @test round.(ww2; digits=3)[:, 1, 1] == [0.0, 0.0, 1.0]
     end
 end
 
 @testset "Erase and add" begin
-    new = DNC.eraseandadd(M, [0.0, 0, 1], ones(3), [2.0, 2.0, 2.0])
-    @test new[3,:] == [2.0, 2.0, 2.0]
-    ww2 = round.(writeweights(M, allocationwrite, state.ww, state.wr, state.u); digits=3)
+    B = 1
+    u = DNC.usage(state.u, state.ww, state.wr, allocationwrite.f)
+    new = DNC.eraseandadd(M, reshape([0.0f0, 0, 1], N, 1, B), ones(Float32, 3, B), 2*ones(Float32, W, B))
+    @test eltype(new) == Float32
+    @test new[3,:, 1] == [2.0, 2.0, 2.0]
+    ww2 = round.(DNC.writeweights(M, allocationwrite, u); digits=3)
     new2 = DNC.eraseandadd(M, ww2, allocationwrite[:e], allocationwrite[:v]) 
-    @test new2[3,:] == allocationwrite[:v]
+    @test new2[3,:, 1] == allocationwrite[:v][:, 1]
 end
 
 using Random
 rng = MersenneTwister(234)
-@testset "MemoryAccess" begin
-    insize, N, W, R = 20, 5, 10, 2
-    ma = DNC.MemoryAccess(insize, N, W, R)
-    inputs = rand(rng, insize)
-    @testset "Dimensions" begin
-        @test size(ma.M) == (N, W)
-        @test size(ma.state.wr) == (N, R)
-        readvectors = ma(inputs)
-        @test size(readvectors) == (W, R)
-    end
-    @testset "Gradient" begin
-        g = gradient(inputs) do inputs
-            sum(ma(inputs))
-        end
-        @test !isnothing(g)
-    end
 
+@testset "MemoryAccess" begin
+    insize, N, W, R, B = 20, 5, 10, 2, 1
+    ma = DNC.MemoryAccess(insize, N, W, R, B)
+    inputs = rand(rng, Float32, insize, B)
+    @testset "Dimensions" begin
+        @test size(ma.M) == (N, W, B)
+        @test size(ma.state.wr) == (N, R, B)
+        readvectors = ma(inputs)
+        @test eltype(readvectors) == Float32
+        @test size(readvectors) == (W, R, B)
+    end
+end
+
+insize, N, W, R, B = 20, 5, 10, 2, 4
+ma = DNC.MemoryAccess(insize, N, W, R, B)
+M = rand(rng, Float32, N, W, B)
+L = rand(rng, Float32, N, N, B)
+prev_wr = rand(rng, Float32, N, R, B)
+inputsraw = rand(rng, Float32, insize, B)
+mappings = DNC.inputmappings(20, R, W)
+inputs = DNC.split_ξ(inputsraw, mappings)
+state = DNC.State(N, R, B)
+
+@testset "Batch training" begin
+    r = DNC.readweights(M, inputs, L, prev_wr)
+    @test size(r) == (N, R, B)
+    u = DNC.usage(state.u, state.ww, state.wr, inputs.f)
+    w = DNC.writeweights(M, inputs, u)
+    @test size(w) == (N, 1, B)
+    newM = DNC.eraseandadd(M, w, inputs.e, inputs.v)
+    @test size(newM) == (N, W, B)
+    res = ma(inputsraw)
+    @test size(res) == (W, R, B)
 end

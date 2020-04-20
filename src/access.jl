@@ -1,50 +1,60 @@
 using Zygote: @adjoint
 
 
-mutable struct State
-    L
-    p
-    u
-    ww
-    wr
+mutable struct State{T, S}
+    L::T
+    p::S
+    u::S
+    ww::T
+    wr::T
 end
 
-State(N::Int, R::Int) = State(
-    zeros(N, N),
-    zeros(N),
-    zeros(N),
-    zeros(N),
-    zeros(N, R)
+
+State(N::Int, R::Int, B::Int) = State(
+    zeros(Float32, N, N, B),
+    zeros(Float32, N, B),
+    zeros(Float32, N, B),
+    zeros(Float32, N, 1, B),
+    zeros(Float32, N, R, B)
     )
 
-mutable struct MemoryAccess
-    M
-    state
-    inputmaps
+
+mutable struct MemoryAccess{R, T, S}
+    M::T
+    state::State{T, S}
+    inputmaps::R
 end
-MemoryAccess(inputsize, N, W, R; init=Flux.glorot_uniform) = 
-    MemoryAccess(init(N, W), State(N, R), inputmappings(inputsize, R, W))
+
+
+MemoryAccess(inputsize, N, W, R, B; init=Flux.glorot_uniform) = 
+    MemoryAccess(init(N, W, B), State(N, R, B), inputmappings(inputsize, R, W))
+
 
 function (ma::MemoryAccess)(inputs)
-    R = size(ma.state.wr)[2]
-    W = size(ma.M)[2]
+    p_prev, u_prev, ww_prev, wr_prev = ma.state.p, ma.state.u, ma.state.ww, ma.state.wr
     inputs = split_ξ(inputs, ma.inputmaps)
-    p, u, ww, wr = ma.state.p, ma.state.u, ma.state.ww, ma.state.wr
-    u = usage(u, ww, wr, inputs.f)
-    ww= writeweights(ma.M, inputs, ww, wr, u)
+    u = usage(u_prev, ww_prev, wr_prev, inputs.f)
+    ww = writeweights(ma.M, inputs, u)
     ma.M = eraseandadd(ma.M, ww, inputs.e, inputs.v)
     update_state_after_write!(ma.state, ww, u)
-    wr = readweights(ma.M, inputs, ma.state.L, wr)
+    wr = readweights(ma.M, inputs, ma.state.L, wr_prev)
     update_state_after_read!(ma.state, wr)
-    readvectors = ma.M' * wr
+    readvectors = readmem(ma.M, wr)
     readvectors
 end
 
+function readmem(M::AbstractArray{T, 3}, wr::AbstractArray{T, 3}) where T
+    batched_mul(PermutedDimsArray(M, (2, 1, 3)), wr)
+end
 
 """
-    readweights(inputs, L::Matrix, prev_wr)
+    readweights(M, inputs, L, prev_wr)
 
-Fuzzy read the memory M. 
+# Arguments
+- `M`: (N, W, B) memory
+- `inputs`: Named Tuple of controller parameters
+- `L`: (N, N, B) link matrix
+- `prev_wr`: (N, R, B) last iterations read weights
 """
 function readweights(M, inputs, L, prev_wr)
     k, β, readmode= inputs.kr, inputs.βr, inputs.readmode
@@ -55,20 +65,15 @@ function readweights(M, inputs, L, prev_wr)
 end
 
 """
-    writeweights(M, inputs, free::AbstractArray, prev_ww::AbstractArray, prev_wr::AbstractArray, prev_usage::AbstractArray)
+    writeweights(M, inputs, usage)
 
 Fuzzy write to memory. Location is based on either content similarity or row usage.
 
 """
-function writeweights(M, inputs,
-        prev_ww,
-        prev_wr,
-        prev_usage)
-    k, β, ga, gw, e, v, free = inputs.kw, inputs.βw, inputs.ga[1], inputs.gw[1], inputs.e, inputs.v, inputs.f
+function writeweights(M, inputs, usage)
+    k, β, ga, gw = inputs.kw, inputs.βw, inputs.ga, inputs.gw
     cw = contentaddress(k, M, β)
-    𝜓 = memoryretention(prev_wr, free)
-    u = usage(prev_usage, prev_ww, 𝜓)
-    a = allocationweighting(u)
+    a = allocationweighting(usage)
     ww = writeweight(cw, a, gw, ga)
 end
 
@@ -89,4 +94,11 @@ end
 @adjoint update_state_after_read!(state, wr) =
     update_state_after_read!(state, wr), _ -> nothing
 
-eraseandadd(M, ww, e, a) = M .* (ones(size(M)) - ww * e') + ww * a'
+function eraseandadd(M::AbstractArray{T, 3}, ww::AbstractArray{T, 3}, e::AbstractArray{T,2}, a::AbstractArray{T, 2}) where T
+    e = reshape(e, size(e, 1), 1, size(e, 2))
+    a = reshape(a, size(a, 1), 1, size(a, 2))
+    erasematrix = batched_mul(ww, PermutedDimsArray(e, (2, 1, 3)))
+    addmatrix = batched_mul(ww, PermutedDimsArray(a, (2, 1, 3)))
+    @cast newM[i, j, k] := M[i, j, k] * (1-erasematrix[i, j, k]) + addmatrix[i, j, k]
+end
+
