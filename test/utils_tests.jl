@@ -15,29 +15,6 @@ xs = sort(Float32.([-1000, -10.0, -1.5, 0.0, 0.1, 1.0, 15.0]))
     end
 end
 
-@testset "weighted softmax" begin
-    # Sharpener of 1 does not affect result (softmax is from NNlib package)
-    @test DNC.weightedsoftmax([1.0, 2.0], 1) == softmax([1.0, 2.0])
-    # Test for correct results
-    @testset "loop" for
-        xs in [[0.0, 1.0], [1.0, 2.0], [0.5, -0.6], [-1.3, -5.0]],
-            β in [1 , 2, 10]
-        @test DNC.weightedsoftmax(xs, β)[1] ≈ exp(xs[1]*β)/(exp(xs[1]*β)+exp(xs[2]*β))
-        @test DNC.weightedsoftmax(xs, β)[2] ≈ exp(xs[2]*β)/(exp(xs[1]*β)+exp(xs[2]*β))
-    end
-    # Test for Float32 type stability
-    @test eltype(DNC.weightedsoftmax([0.f0, 1.f0], 2.f0)) == Float32
-end
-
-@testset "Cosine similarity" begin
-    a, b = ([1.f0, 1.f0], [0.f0, 0.5f0])
-    @test DNC.cosinesim([1, 2], [1, 2]) ≈ 1
-    @test DNC.cosinesim([1, 1], [0,1]) ≈ cos(π/4)
-    @test DNC.cosinesim([-1, 1], [1, 0]) ≈ cos(3π/4)
-    @test DNC.cosinesim([1, 0, 0], [0, 1, 0]) == 0
-    @test eltype(DNC.cosinesim(a, b)) == Float32
-end
-
 @testset "Calc output" begin
     outsize = 5
     N, W, R, B = 3, 5, 2, 1

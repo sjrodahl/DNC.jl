@@ -19,9 +19,11 @@ maxlength = 2
 X = nbits+2
 Y = nbits+1
 N, W, R = 16, 16, 2
+controllerout = 64+Y
 
-niter = 2000
-batchsize = 64
+niter = 200
+batchsize = 16
+
 seqs = [RepeatCopy(;
             nbits=nbits,
             maxrepeats=maxrepeats,
@@ -31,7 +33,7 @@ seqs = [RepeatCopy(;
 
 batcheddata = RepeatCopyBatchLoader(seqs, batchsize=batchsize)
 
-model = Dnc(X, Y, N, W, R, batchsize) |> gpu
+model = Dnc(X, Y, controllerout, N, W, R, batchsize) |> gpu
 
 loss(rc::RepeatCopy; printoutput=false) = loss(model, rc; printoutput=printoutput)
 loss(batch::Tuple; printoutput=false) = loss(model, batch...; printoutput=printoutput)
@@ -43,4 +45,4 @@ evalcb = ThrottleIterations(100) do
     loss(Base.iterate(batcheddata, idx)[1]; printoutput=true)
 end
 
-@time mytrain!(loss, params(model), batcheddata, opt; cb=evalcb)
+@time mytrain!(loss, Flux.params(model), batcheddata, opt; cb=evalcb)
