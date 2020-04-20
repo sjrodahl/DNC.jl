@@ -8,10 +8,10 @@ mutable struct DNCCell{C, T, S, M}
     controller::C
     readvectors::S
     Wr::T
-    R::Int64
-    W::Int64
-    X::Int64
-    Y::Int64
+    R::Int
+    W::Int
+    X::Int
+    Y::Int
     memoryaccess::MemoryAccess{M, T, S}
 end
 
