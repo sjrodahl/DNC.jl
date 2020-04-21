@@ -4,10 +4,10 @@ using Flux: softmax, σ
 import Flux.hidden, Flux.trainable, Flux.LSTMCell
 
 
-mutable struct DNCCell{C, T, S, M}
+mutable struct DNCCell{C, C2, T, S, M}
     controller::C
     readvectors::S
-    Wr::T
+    outputlayer::C2
     R::Int
     W::Int
     X::Int
@@ -19,37 +19,38 @@ DNCCell(controller, in::Int, out::Int, controut::Int, N::Int, W::Int, R::Int, B:
     DNCCell(
         controller,
         zeros(Float32, R*W, B),
-        init(out, R*W, B),
+        Dense(controut+R*W, out),
         R, W, in, out,
-        MemoryAccess(controut-out, N, W, R, B))
+        MemoryAccess(controut, N, W, R, B; init=init))
 
 DNCCell(in::Int, out::Int, controut::Int, N::Int, W::Int, R::Int, B::Int; init=Flux.glorot_uniform) = 
     DNCCell(
         MyLSTM(B, inputsize(in, R, W), controut),
         zeros(Float32, R*W, B),
-        init(out, R*W, B),
+        Dense(controut+R*W, out),
         R, W, in, out,
-        MemoryAccess(controut-out, N, W, R, B))
+        MemoryAccess(controut, N, W, R, B; init=init))
 
 
 function (m::DNCCell)(h, x)
-    B = size(m.Wr, 3)
     out = m.controller([x;h])
-    v = view(out, 1:m.Y, :)
-    ξ = view(out, (m.Y+1):size(out, 1), :)
-    r = m.memoryaccess(ξ)
-    r = reshape(r, size(r,1)*size(r, 2), B)
-    return r, calcoutput(v, r, m.Wr)
+    r = m.memoryaccess(out)
+    r = reshape(r, size(r,1)*size(r, 2), size(r, 3))
+    return r, m.outputlayer([out;r])
 end
 
 hidden(m::DNCCell) = m.readvectors
 
-trainable(m::DNCCell) = (m.controller, m.Wr, trainable(m.memoryaccess))
+trainable(m::DNCCell) = (m.controller, m.outputlayer, trainable(m.memoryaccess))
 @functor DNCCell
 
 import Base.show
 function Base.show(io::IO, l::DNCCell)
-    print(io, "DNCCell($(l.X), $(l.Y))")
+    readvecsize = size(l.readvectors, 1)
+    controllerin = size(l.controller.cell.Wi, 2)
+    X = controllerin - readvecsize
+    Y = size(l.outputlayer.W, 1)
+    print(io, "DNCCell($(X), $(Y))")
 end
 
 mutable struct MyRecur{T, S}
