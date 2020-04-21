@@ -19,10 +19,11 @@ maxlength = 2
 
 X = nbits+2
 Y = nbits+1
-N, W, R = 16, 16, 4
-controllerout = 64
 
+N, W, R = 16, 16, 2
+controllerout = 64
 niter = 100000
+
 batchsize = 16
 
 seqs = [RepeatCopy(;
