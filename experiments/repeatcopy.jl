@@ -165,8 +165,7 @@ function maskedsigmoidcrossentropy(logits, target, mask)
 end
 
 function printmodeloutput(logits, mask)
-    r, c  = size(logits)
-    convertedmatrix = repeat(mask', r) .* round.(Flux.σ.(logits))
+    convertedmatrix =  round.(Flux.σ.(logits)).*mask'
     print("Model output:\n")
     prettyprint(convertedmatrix)
 end
