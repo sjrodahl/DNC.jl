@@ -165,8 +165,7 @@ function maskedsigmoidcrossentropy(logits, target, mask)
 end
 
 function printmodeloutput(logits, mask)
-    r, c  = size(logits)
-    convertedmatrix = repeat(mask', r) .* round.(Flux.σ.(logits))
+    convertedmatrix =  round.(Flux.σ.(logits)).*mask'
     print("Model output:\n")
     prettyprint(convertedmatrix)
 end
@@ -240,6 +239,8 @@ using Zygote: Params, gradient
 using Dates
 
 function mytrain!(loss, ps, data, opt; cb=()->())
+    niter = length(data)
+    batchsize = data.dataloader.batchsize
     ps = Params(ps)
     cb = runall(cb)
     for d in data
