@@ -7,22 +7,23 @@ using NNlib
 """
     contentaddress(key::AbstractArray{T, 3}, mem::AbstractArray{T, 3}, β::AbstractArray{S, 2}, K=weightedcosinesim) where {T, S}
 
-Compute the similarity K (default cosine similarity) between all rows of memory M and the key.
-β acts as sharpener: high values concentrate weights, low values (<1) blurs them.
+Compute the cosine similarity between all rows of memory M and the key k.
+β acts as sharpener: high values concentrate weights.
 
 # Arguments
-- `key`: (N x R x B)
-- `mem`: (N x W x B)
-- `β`: (R x B)
+- `k`: (W x R x B) keys
+- `M`: (N x W x B) memory
+- `β`: (R x B) strengths
 """
 
-function contentaddress(a::AbstractArray{T, 3}, b::AbstractArray{T, 3}, β::AbstractArray{S, 2}) where {T, S}
-    @reduce den1[j, k] := sum(s) a[s, j, k]^2 
-    @reduce den2[i, k] := sum(s) b[i, s, k]^2 
-    bmm = batched_mul(b, a)
-    @cast similarity[i, j, k] := bmm[i, j, k] / sqrt(den1[j, k] * den2[i, k])
-    @cast weighted[i, j, k] := similarity[i, j, k] * β[j, k]
-    softmax(weighted; dims=1)
+function contentaddress(k, M, β)
+    norm_k = sum(k.^2, dims=1)
+    norm_M = sum(M.^2, dims=2)
+    norm = sqrt.(batched_mul(norm_M, norm_k))
+    dot = batched_mul(M, k)
+    β = reshape(β, 1, size(β)...)
+    weightedsimilarity = dot .* β ./ norm
+    softmax(weightedsimilarity; dims=1)
 end
 
 """
