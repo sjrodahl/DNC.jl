@@ -1,4 +1,5 @@
 using Zygote: @adjoint
+import Flux: trainable
 
 
 mutable struct State{T, S}
@@ -29,6 +30,8 @@ end
 MemoryAccess(inputsize, N, W, R, B; init=Flux.glorot_uniform) = 
     MemoryAccess(init(N, W, B), State(N, R, B), inputmappings(inputsize, R, W))
 
+
+trainable(ma::MemoryAccess) = ma.inputmaps
 
 function (ma::MemoryAccess)(inputs)
     p_prev, u_prev, ww_prev, wr_prev = ma.state.p, ma.state.u, ma.state.ww, ma.state.wr

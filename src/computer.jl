@@ -44,7 +44,7 @@ end
 
 hidden(m::DNCCell) = m.readvectors
 
-trainable(m::DNCCell) = m.controller, m.Wr
+trainable(m::DNCCell) = (m.controller, m.Wr, trainable(m.memoryaccess))
 @functor DNCCell
 
 import Base.show
