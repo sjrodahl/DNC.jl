@@ -8,10 +8,6 @@ mutable struct DNCCell{C, C2, T, S, M}
     controller::C
     readvectors::S
     outputlayer::C2
-    R::Int
-    W::Int
-    X::Int
-    Y::Int
     memoryaccess::MemoryAccess{M, T, S}
 end
 
@@ -20,7 +16,6 @@ DNCCell(controller, in::Int, out::Int, controut::Int, N::Int, W::Int, R::Int, B:
         controller,
         zeros(Float32, R*W, B),
         Dense(controut+R*W, out),
-        R, W, in, out,
         MemoryAccess(controut, N, W, R, B; init=init))
 
 DNCCell(in::Int, out::Int, controut::Int, N::Int, W::Int, R::Int, B::Int; init=Flux.glorot_uniform) = 
@@ -28,7 +23,6 @@ DNCCell(in::Int, out::Int, controut::Int, N::Int, W::Int, R::Int, B::Int; init=F
         MyLSTM(B, inputsize(in, R, W), controut),
         zeros(Float32, R*W, B),
         Dense(controut+R*W, out),
-        R, W, in, out,
         MemoryAccess(controut, N, W, R, B; init=init))
 
 
