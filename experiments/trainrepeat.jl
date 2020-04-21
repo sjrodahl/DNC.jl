@@ -12,20 +12,22 @@ using Flux.Data: DataLoader
 include("repeatcopy.jl")
 
 nbits = 4
-maxrepeats = 1
-minlength = 2
+minrepeats = 1
+maxrepeats = 2
+minlength = 1
 maxlength = 2
 
 X = nbits+2
 Y = nbits+1
-N, W, R = 16, 16, 2
-controllerout = 64+Y
+N, W, R = 16, 16, 4
+controllerout = 64
 
-niter = 200
+niter = 100000
 batchsize = 16
 
 seqs = [RepeatCopy(;
             nbits=nbits,
+            minrepeats=minrepeats,
             maxrepeats=maxrepeats,
             minlength=minlength,
             maxlength=maxlength)
