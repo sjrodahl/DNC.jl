@@ -8,6 +8,8 @@ mutable struct DNCCell{C, C2, T, S, M}
     controller::C
     readvectors::S
     outputlayer::C2
+    X::Integer
+    Y::Integer
     memoryaccess::MemoryAccess{M, T, S}
 end
 
@@ -16,6 +18,7 @@ DNCCell(controller, in::Int, out::Int, controut::Int, N::Int, W::Int, R::Int, B:
         controller,
         zeros(Float32, R*W, B),
         Dense(controut+R*W, out),
+        in, out,
         MemoryAccess(controut, N, W, R, B; init=init))
 
 DNCCell(in::Int, out::Int, controut::Int, N::Int, W::Int, R::Int, B::Int; init=Flux.glorot_uniform) = 
@@ -23,6 +26,7 @@ DNCCell(in::Int, out::Int, controut::Int, N::Int, W::Int, R::Int, B::Int; init=F
         MyLSTM(B, inputsize(in, R, W), controut),
         zeros(Float32, R*W, B),
         Dense(controut+R*W, out),
+        in, out,
         MemoryAccess(controut, N, W, R, B; init=init))
 
 
@@ -40,11 +44,7 @@ trainable(m::DNCCell) = (m.controller, m.outputlayer, trainable(m.memoryaccess))
 
 import Base.show
 function Base.show(io::IO, l::DNCCell)
-    readvecsize = size(l.readvectors, 1)
-    controllerin = size(l.controller.cell.Wi, 2)
-    X = controllerin - readvecsize
-    Y = size(l.outputlayer.W, 1)
-    print(io, "DNCCell($(X), $(Y))")
+    print(io, "DNCCell($(l.X), $(l.Y))")
 end
 
 mutable struct MyRecur{T, S}
