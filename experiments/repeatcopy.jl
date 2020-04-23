@@ -137,7 +137,7 @@ end
 function prettyprint(data)
     r, c = size(data)
     for row in 1:r
-        println(printrow(data[row, :]))
+        println(printrow(Int32.(data[row, :])))
     end
     print("\n")
 end
@@ -160,13 +160,13 @@ function sigmoidlogitscrossentropy(logits, targets)
 end
 
 function maskedsigmoidcrossentropy(logits, target, mask)
-    l = sum(Flux.logitbinarycrossentropy.(logits, target); dims=1) .* mask
+    l = sum(Flux.logitbinarycrossentropy.(logits, target); dims=1) * mask
     l[1]
 end
 
 function printmodeloutput(logits, mask)
     r, c  = size(logits)
-    convertedmatrix = repeat(mask', r) .* round.(Flux.σ.(logits))
+    convertedmatrix = Int32.(repeat(mask', r) .* round.(Flux.σ.(logits)))
     print("Model output:\n")
     prettyprint(convertedmatrix)
 end
