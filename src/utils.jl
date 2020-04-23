@@ -25,6 +25,10 @@ oneplus(x) = 1 + log(1+exp(x))
 inputsize(X::Int, R::Int, W::Int) = X + R * W
 outputsize(R::Int, N::Int, W::Int, X::Int, Y::Int) = W*R + 3W + 5R +3 + Y
 
+function clip(arr, clipvalue)
+    isnothing(clipvalue) && return arr
+    map(x->min(x,clipvalue), map(x->max(x, -clipvalue), arr))
+end
 
 function calcoutput(v::AbstractArray{T, 2}, r::AbstractArray{T, 2}, Wr::AbstractArray{T, 3}) where T
     r = reshape(r, size(r, 1), 1, size(r, 2))

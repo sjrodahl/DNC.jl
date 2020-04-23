@@ -15,6 +15,12 @@ xs = sort(Float32.([-1000, -10.0, -1.5, 0.0, 0.1, 1.0, 15.0]))
     end
 end
 
+@testset "clip" begin
+    arr = [-3, -2.5, -1, 1.5, 3.5]
+    @test DNC.clip(arr, nothing) == arr
+    @test DNC.clip(arr, 2) == [-2, -2, -1, 1.5, 2]
+end
+
 @testset "Calc output" begin
     outsize = 5
     N, W, R, B = 3, 5, 2, 1
