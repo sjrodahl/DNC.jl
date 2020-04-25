@@ -27,8 +27,8 @@ mutable struct MemoryAccess{R, T, S}
 end
 
 
-MemoryAccess(inputsize, N, W, R, B; init=Flux.glorot_uniform) = 
-    MemoryAccess(init(N, W, B), State(N, R, B), inputmappings(inputsize, R, W))
+MemoryAccess(inputsize, N, W, R, B; init=Flux.glorot_normal) = 
+    MemoryAccess(zeros(Float32, N, W, B), State(N, R, B), inputmappings(inputsize, R, W;init=init))
 
 
 trainable(ma::MemoryAccess) = ma.inputmaps

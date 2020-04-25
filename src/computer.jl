@@ -14,7 +14,7 @@ mutable struct DNCCell{C, C2, T, S, M}
     memoryaccess::MemoryAccess{M, T, S}
 end
 
-DNCCell(controller, in::Int, out::Int, controut::Int, N::Int, W::Int, R::Int, B::Int; clipvalue=nothing, init=Flux.glorot_uniform) = 
+DNCCell(controller, in::Int, out::Int, controut::Int, N::Int, W::Int, R::Int, B::Int; clipvalue=nothing, init=Flux.glorot_normal) = 
     DNCCell(
         controller,
         zeros(Float32, R*W, B),
@@ -22,9 +22,9 @@ DNCCell(controller, in::Int, out::Int, controut::Int, N::Int, W::Int, R::Int, B:
         in, out, clipvalue,
         MemoryAccess(controut, N, W, R, B; init=init))
 
-DNCCell(in::Int, out::Int, controut::Int, N::Int, W::Int, R::Int, B::Int; clipvalue=nothing, init=Flux.glorot_uniform) = 
+DNCCell(in::Int, out::Int, controut::Int, N::Int, W::Int, R::Int, B::Int; clipvalue=nothing, init=Flux.glorot_normal) = 
     DNCCell(
-        MyLSTM(B, inputsize(in, R, W), controut),
+        MyLSTM(B, inputsize(in, R, W), controut; init=init),
         zeros(Float32, R*W, B),
         Dense(controut+R*W, out),
         in, out, clipvalue,
@@ -77,7 +77,7 @@ Initialise a Differentiable Neural Computer with memory size (N, W) and R read h
 Dnc(a...; ka...) = MyRecur(DNCCell(a...; ka...))
 
 function MyLSTM(batchsize, a...; ka...)
-    cell = LSTMCell(a..., ka...)
+    cell = LSTMCell(a...; ka...)
     h = reshape.(repeat.(hidden(cell), batchsize), :, batchsize)
     MyRecur(cell, h)
 end
