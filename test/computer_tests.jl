@@ -25,10 +25,15 @@ rng = MersenneTwister(2345)
     out2 = dnc2(x)
     @test size(out2) == (Y, B)
     @test eltype(out2) == Float32
+    # Test clip value
+    clipvalue = 0.1
+    dnc3 = Dnc(X, Y, controut, N, W, R, B; clipvalue=clipvalue)
+    @test all(dnc3(x) .<= clipvalue)
+    @test all(dnc3(x) .>= -clipvalue)
 end
 
 R, N, W, X, Y, B = 2, 10, 16, 2, 2, 4
-controllerout = 64+Y
+controllerout = 64
 dnc = Dnc(X, Y, controllerout, N, W, R, B)
 @show(dnc)
 

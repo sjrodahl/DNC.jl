@@ -1,7 +1,7 @@
 name = "DNC"
 uuid = "7b987522-0c6b-11ea-1e70-6f5aba102f2b"
 authors = ["Sondre Rodahl"]
-version = "0.2.0"
+version = "0.2.1"
 
 [deps]
 BSON = "fbb218c0-5317-5bc6-957e-2ee96dd4b1f0"

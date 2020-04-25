@@ -10,31 +10,32 @@ mutable struct DNCCell{C, C2, T, S, M}
     outputlayer::C2
     X::Integer
     Y::Integer
+    clipvalue::Union{Real, Nothing}
     memoryaccess::MemoryAccess{M, T, S}
 end
 
-DNCCell(controller, in::Int, out::Int, controut::Int, N::Int, W::Int, R::Int, B::Int; init=Flux.glorot_uniform) = 
+DNCCell(controller, in::Int, out::Int, controut::Int, N::Int, W::Int, R::Int, B::Int; clipvalue=nothing, init=Flux.glorot_uniform) = 
     DNCCell(
         controller,
         zeros(Float32, R*W, B),
         Dense(controut+R*W, out),
-        in, out,
+        in, out, clipvalue,
         MemoryAccess(controut, N, W, R, B; init=init))
 
-DNCCell(in::Int, out::Int, controut::Int, N::Int, W::Int, R::Int, B::Int; init=Flux.glorot_uniform) = 
+DNCCell(in::Int, out::Int, controut::Int, N::Int, W::Int, R::Int, B::Int; clipvalue=nothing, init=Flux.glorot_uniform) = 
     DNCCell(
         MyLSTM(B, inputsize(in, R, W), controut),
         zeros(Float32, R*W, B),
         Dense(controut+R*W, out),
-        in, out,
+        in, out, clipvalue,
         MemoryAccess(controut, N, W, R, B; init=init))
 
 
 function (m::DNCCell)(h, x)
-    out = m.controller([x;h])
+    out = clip(m.controller([x;h]), m.clipvalue)
     r = m.memoryaccess(out)
     r = reshape(r, size(r,1)*size(r, 2), size(r, 3))
-    return r, m.outputlayer([out;r])
+    return r, clip(m.outputlayer([out;r]), m.clipvalue)
 end
 
 hidden(m::DNCCell) = m.readvectors
