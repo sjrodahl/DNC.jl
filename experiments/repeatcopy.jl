@@ -10,6 +10,8 @@ struct RepeatCopy
     mask
 end
 
+_normalise(r, normval) = r/normval
+_unnormalise(r, normval) = r*normval
 
 function RepeatCopy(;
         nbits=4,
@@ -36,7 +38,7 @@ function RepeatCopy(;
     # Attach start- and numrepeats markers to observation pattern
     startflag = Flux.onehot(timingmarker_idx, 1:fullobssize)
     repeatsflag = zeros(eltype(obspattern),  fullobssize)
-    repeatsflag[numrepeatsmarker_idx] = numrepeats
+    repeatsflag[numrepeatsmarker_idx] = _normalise(numrepeats, 10)
     obspattern = pad(obspattern, fullobssize, seqlength)
     obspattern = hcat(startflag, obspattern, repeatsflag)
     # Pad observation with space for the target
@@ -134,10 +136,14 @@ function printrow(row)
 end
 
 
-function prettyprint(data)
+function prettyprint(data; isnormalized=false)
     r, c = size(data)
     for row in 1:r
-        println(printrow(Int32.(data[row, :])))
+        if isnormalized && row == r
+            println(printrow(Int32.(_unnormalise.(data[row,:], 10))))
+        else
+            println(printrow(Int32.(data[row, :])))
+        end
     end
     print("\n")
 end
@@ -145,7 +151,7 @@ end
 
 function prettyprint(rp::RepeatCopy)
     print("Observation:\n")
-    prettyprint(rp.obs)
+    prettyprint(rp.obs; isnormalized=true)
     print("\nTarget:\n")
     prettyprint(rp.target)
 end
