@@ -1,7 +1,8 @@
 name = "DNC"
 uuid = "7b987522-0c6b-11ea-1e70-6f5aba102f2b"
 authors = ["Sondre Rodahl"]
-version = "0.2.1"
+version = "0.2.2"
+
 
 [deps]
 BSON = "fbb218c0-5317-5bc6-957e-2ee96dd4b1f0"
@@ -12,8 +13,8 @@ TensorCast = "02d47bb6-7ce6-556a-be16-bb1710789e2b"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [extras]
-Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
 test = ["Test", "Random"]

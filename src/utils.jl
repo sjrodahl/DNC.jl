@@ -25,6 +25,7 @@ oneplus(x) = 1 + log(1+exp(x))
 inputsize(X::Int, R::Int, W::Int) = X + R * W
 outputsize(R::Int, N::Int, W::Int, X::Int, Y::Int) = W*R + 3W + 5R +3 + Y
 
+
 function clip(arr, clipvalue)
     isnothing(clipvalue) && return arr
     map(x->min(x,clipvalue), map(x->max(x, -clipvalue), arr))
@@ -37,10 +38,10 @@ function calcoutput(v::AbstractArray{T, 2}, r::AbstractArray{T, 2}, Wr::Abstract
 end
 
 
-function inputmappings(numinputs,R, W)
-    lin(outsize; activation=identity) = Dense(numinputs, outsize, activation)
+function inputmappings(numinputs,R, W; init=Flux.glorot_normal)
+    lin(outsize; activation=identity) = Dense(numinputs, outsize, activation; initW=init)
     function lin(firstdim, seconddim; activation=identity)
-        transformed  = Dense(numinputs, firstdim * seconddim, activation)
+        transformed  = Dense(numinputs, firstdim * seconddim, activation; initW=init)
         Chain(transformed, x-> reshape(x, firstdim, seconddim, :))
     end
     (v = lin(W),

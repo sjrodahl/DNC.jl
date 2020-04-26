@@ -17,10 +17,12 @@ Compute the cosine similarity between all rows of memory M and the key k.
 """
 
 function contentaddress(k, M, β)
+    dot = batched_mul(M, k)
+    M = M .+ eps(eltype(M))
+    k = k .+ eps(eltype(k))
     norm_k = sum(k.^2, dims=1)
     norm_M = sum(M.^2, dims=2)
     norm = sqrt.(batched_mul(norm_M, norm_k))
-    dot = batched_mul(M, k)
     β = reshape(β, 1, size(β)...)
     weightedsimilarity = dot .* β ./ norm
     softmax(weightedsimilarity; dims=1)

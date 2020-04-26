@@ -81,6 +81,14 @@ end
     res = contentaddress(key, M, β)
     @test res[1] ≈ 1
     @test eltype(res) == Float32
+    # Test division by zero
+    M[2, :] = zeros(Float32, 3)
+    contentzero = contentaddress(key, M, β)
+    @test !any(isnan.(contentzero))
+    gs = gradient((k, m, b)->sum(contentaddress(k, m, b)), key, M, β)
+    @test !any(isnan.(gs[1]))
+    @test !any(isnan.(gs[2]))
+    @test !any(isnan.(gs[3]))
 end
 
 
