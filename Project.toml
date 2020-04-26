@@ -3,6 +3,7 @@ uuid = "7b987522-0c6b-11ea-1e70-6f5aba102f2b"
 authors = ["Sondre Rodahl"]
 version = "0.2.2"
 
+
 [deps]
 BSON = "fbb218c0-5317-5bc6-957e-2ee96dd4b1f0"
 Flux = "587475ba-b771-5e3f-ad9e-33799f191a9c"
