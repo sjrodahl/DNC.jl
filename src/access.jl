@@ -98,10 +98,10 @@ end
     update_state_after_read!(state, wr), _ -> nothing
 
 function eraseandadd(M::AbstractArray{T, 3}, ww::AbstractArray{T, 3}, e::AbstractArray{T,2}, a::AbstractArray{T, 2}) where T
-    e = reshape(e, size(e, 1), 1, size(e, 2))
-    a = reshape(a, size(a, 1), 1, size(a, 2))
-    erasematrix = batched_mul(ww, PermutedDimsArray(e, (2, 1, 3)))
-    addmatrix = batched_mul(ww, PermutedDimsArray(a, (2, 1, 3)))
-    @cast newM[i, j, k] := M[i, j, k] * (1-erasematrix[i, j, k]) + addmatrix[i, j, k]
+    e = reshape(e, 1, size(e, 1), size(e, 2))
+    a = reshape(a, 1, size(a, 1), size(a, 2))
+    erasematrix = batched_mul(ww, e)
+    addmatrix = batched_mul(ww, a)
+    newM = @__dot__(M * (1-erasematrix)+addmatrix)
 end
 
